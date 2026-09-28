@@ -333,14 +333,21 @@ public final class BlockPolicyListener implements Listener {
                                                         BlockPolicyResolver.Resolution source,
                                                         BlockPolicyResolver.Resolution target,
                                                         boolean createsInfiniteWaterSource) {
-        if (warzone == null || sourceBlock.getType() != Material.WATER
-                || createsInfiniteWaterSource
-                || source.referenced() && source.policy() == null
-                || target.referenced() && target.policy() == null) return false;
+        if (warzone == null || !eligibleWarzoneWaterFlow(sourceBlock, source, target,
+                createsInfiniteWaterSource)) return false;
         var runtime = warzone.runtime();
         return runtime != null && runtime.rotations().active().cobwebsAllowed()
                 && warzone.appliesAt(sourceBlock.getLocation())
                 && warzone.appliesAt(targetBlock.getLocation());
+    }
+
+    private static boolean eligibleWarzoneWaterFlow(Block sourceBlock,
+                                                      BlockPolicyResolver.Resolution source,
+                                                      BlockPolicyResolver.Resolution target,
+                                                      boolean createsInfiniteWaterSource) {
+        return sourceBlock.getType() == Material.WATER && !createsInfiniteWaterSource
+                && (!source.referenced() || source.policy() != null)
+                && (!target.referenced() || target.policy() != null);
     }
 
     static boolean automationDenied(BlockPolicyResolver.Resolution resolution) {

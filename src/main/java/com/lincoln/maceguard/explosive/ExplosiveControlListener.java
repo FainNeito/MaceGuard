@@ -225,20 +225,22 @@ public final class ExplosiveControlListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onWorldGuardFlameArrowCombust(
             com.sk89q.worldguard.bukkit.event.entity.DamageEntityEvent event) {
-        if (!(event.getOriginalEvent() instanceof EntityCombustByEntityEvent original)
-                || original.isCancelled()) return;
-        Player shooter = flameArrowShooter(original.getCombuster());
-        if (shooter == null || !warzoneAppliesTo(shooter, event.getTarget())) return;
+        if (warzoneFlameArrowCombustAllowed(event)) event.setAllowed(true);
+    }
 
-        Entity target = event.getEntity();
-        if (target instanceof Player) {
-            event.setAllowed(true);
-            return;
-        }
-        if (target.getType() == EntityType.TNT_MINECART
-                && isCurrentCartArtifact(target) && cartModifierActive(event.getTarget())) {
-            event.setAllowed(true);
-        }
+    private boolean warzoneFlameArrowCombustAllowed(
+            com.sk89q.worldguard.bukkit.event.entity.DamageEntityEvent event) {
+        if (!(event.getOriginalEvent() instanceof EntityCombustByEntityEvent original)
+                || original.isCancelled()) return false;
+        Player shooter = flameArrowShooter(original.getCombuster());
+        return shooter != null && warzoneAppliesTo(shooter, event.getTarget())
+                && flameArrowTargetAllowed(event.getEntity(), event.getTarget());
+    }
+
+    private boolean flameArrowTargetAllowed(Entity target, Location location) {
+        if (target instanceof Player) return true;
+        return target.getType() == EntityType.TNT_MINECART
+                && isCurrentCartArtifact(target) && cartModifierActive(location);
     }
 
     /** Paper does not reliably ignite arrows that pass through fire in protected regions. */

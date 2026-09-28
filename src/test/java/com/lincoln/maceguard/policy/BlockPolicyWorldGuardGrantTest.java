@@ -27,6 +27,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class BlockPolicyWorldGuardGrantTest {
+    private static final String WARZONE_SCOPE = "warzone";
+
     @Test void cobwebWaterWithoutNamedPolicyGainsFlowGrant() {
         var flow = new CobwebFlow(true, true, Material.COBWEB);
         flow.listener.onWorldGuardPolicyPlace(flow.delegate);
@@ -72,7 +74,7 @@ class BlockPolicyWorldGuardGrantTest {
     @Test void missingNamedPolicyStillDeniesCobwebWater() {
         var flow = new CobwebFlow(true, true, Material.COBWEB);
         when(flow.resolver.resolve(flow.target.getLocation())).thenReturn(
-                new BlockPolicyResolver.Resolution("warzone", "missing", null, true,
+                new BlockPolicyResolver.Resolution(WARZONE_SCOPE, "missing", null, true,
                         "direct", false, BlockPolicyResolver.Status.REFERENCED_POLICY_MISSING));
         flow.listener.onWorldGuardPolicyPlace(flow.delegate);
         verify(flow.delegate, never()).setAllowed(true);
@@ -133,7 +135,7 @@ class BlockPolicyWorldGuardGrantTest {
         when(original.getBucket()).thenReturn(Material.LAVA_BUCKET);
         when(original.isCancelled()).thenReturn(false);
         when(delegate.getOriginalEvent()).thenReturn(original);
-        when(resolver.resolve(location)).thenReturn(resolved("warzone"));
+        when(resolver.resolve(location)).thenReturn(resolved(WARZONE_SCOPE));
 
         listener.onWorldGuardPolicyPlace(delegate);
 
@@ -151,7 +153,7 @@ class BlockPolicyWorldGuardGrantTest {
         when(original.getBlock()).thenReturn(source);
         when(original.isCancelled()).thenReturn(false);
         when(delegate.getOriginalEvent()).thenReturn(original);
-        when(resolver.resolve(location)).thenReturn(resolved("warzone"));
+        when(resolver.resolve(location)).thenReturn(resolved(WARZONE_SCOPE));
 
         listener.onWorldGuardPolicyBreak(delegate);
 
@@ -174,8 +176,8 @@ class BlockPolicyWorldGuardGrantTest {
         when(original.getToBlock()).thenReturn(target);
         when(original.isCancelled()).thenReturn(false);
         when(delegate.getOriginalEvent()).thenReturn(original);
-        when(resolver.resolve(sourceLocation)).thenReturn(resolved("warzone"));
-        when(resolver.resolve(targetLocation)).thenReturn(resolved("warzone"));
+        when(resolver.resolve(sourceLocation)).thenReturn(resolved(WARZONE_SCOPE));
+        when(resolver.resolve(targetLocation)).thenReturn(resolved(WARZONE_SCOPE));
 
         listener.onWorldGuardPolicyPlace(delegate);
 
