@@ -62,6 +62,8 @@ The direct listener class is instantiated only after the `CombatLogX` soft depen
 
 Automated verification covers the dependency boundary, lifecycle policy, schema migration, latch decisions, Elytra policy, and the intended pearl-correlation model. Source review confirms the API shapes and configuration option names, but does not establish the exact deployed event order. Leaf/Paper event ordering, Geyser behavior, plugin-teleport compatibility, and real stasis/Elytra gameplay still require the live staging matrix below. No live-server test is claimed by this document.
 
+With the CombatLogX Boss Bar expansion enabled, verify the bar handoff: ordinary combat shows only CombatLogX's bar; Warzone combat hides it before MaceGuard's red bar appears; leaving the region keeps only the Warzone bar until untag; untag, death, quit, reload, and dependency disable hide the Warzone bar before restoring the player's original CombatLogX boss-bar preference. Check players who had `/combatlogx toggle bossbar` disabled and verify that a failed handoff shows only CombatLogX's bar with a server warning.
+
 Assign the custom flags only to the intended WorldGuard regions:
 
 ```text

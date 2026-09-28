@@ -13,6 +13,10 @@ public interface CombatLogXGateway extends AutoCloseable {
     boolean bypass(Player player);
     int maximumSeconds(Player player);
     Duration remaining(Player player);
+    /** True only after the CombatLogX Boss Bar is absent for this player. */
+    default boolean suppressBossBar(Player player) { return true; }
+    /** Restore the player's prior CombatLogX Boss Bar preference after our bar is hidden. */
+    default void restoreBossBar(Player player) { }
     void register(Lifecycle lifecycle);
     @Override void close();
 

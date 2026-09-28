@@ -1,7 +1,9 @@
 package com.lincoln.maceguard.warzone.combat;
 
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.UUID;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,10 +28,63 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.withSettings;
 import static org.mockito.Mockito.when;
 
 class DirectCombatLogXGatewayTest {
+    @Test void suppressesOnlyThePlayersCombatLogXBarAndRestoresOriginalPreference() {
+        JavaPlugin owner = mock(JavaPlugin.class);
+        Plugin candidate = mock(Plugin.class, withSettings().extraInterfaces(FakeBossBarApi.class));
+        FakeBossBarApi api = (FakeBossBarApi) candidate;
+        when(api.getCombatManager()).thenReturn(mock(FakeCombatManager.class));
+        FakeTimerManager timers = mock(FakeTimerManager.class);
+        FakePlayerDataManager dataManager = mock(FakePlayerDataManager.class);
+        combatlogx.expansion.boss.bar.BossBarUpdater updater =
+                new combatlogx.expansion.boss.bar.BossBarUpdater();
+        when(api.getTimerManager()).thenReturn(timers);
+        when(api.getPlayerDataManager()).thenReturn(dataManager);
+        when(timers.getTimerUpdaters()).thenReturn(Set.of(updater));
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        YamlConfiguration data = new YamlConfiguration();
+        when(dataManager.get(player)).thenReturn(data);
+
+        DirectCombatLogXGateway gateway = connect(owner, candidate);
+        assertTrue(gateway.suppressBossBar(player));
+        assertFalse(data.getBoolean("bossbar"));
+        assertEquals(player, updater.removedPlayer());
+        verify(dataManager, never()).save(player);
+
+        gateway.restoreBossBar(player);
+        assertFalse(data.contains("bossbar"));
+        verify(dataManager).save(player);
+    }
+
+    @Test void closeRestoresAnExplicitlyDisabledPlayerPreference() {
+        JavaPlugin owner = mock(JavaPlugin.class);
+        Plugin candidate = mock(Plugin.class, withSettings().extraInterfaces(FakeBossBarApi.class));
+        FakeBossBarApi api = (FakeBossBarApi) candidate;
+        when(api.getCombatManager()).thenReturn(mock(FakeCombatManager.class));
+        FakeTimerManager timers = mock(FakeTimerManager.class);
+        FakePlayerDataManager dataManager = mock(FakePlayerDataManager.class);
+        when(api.getTimerManager()).thenReturn(timers);
+        when(api.getPlayerDataManager()).thenReturn(dataManager);
+        when(timers.getTimerUpdaters()).thenReturn(Set.of(
+                new combatlogx.expansion.boss.bar.BossBarUpdater()));
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        YamlConfiguration data = new YamlConfiguration();
+        data.set("bossbar", false);
+        when(dataManager.get(player)).thenReturn(data);
+
+        DirectCombatLogXGateway gateway = connect(owner, candidate);
+        assertTrue(gateway.suppressBossBar(player));
+        gateway.close();
+
+        assertFalse(data.getBoolean("bossbar"));
+        verify(dataManager).save(player);
+    }
     @Test void delegatesThroughRuntimeValidatedPublicMethods() {
         JavaPlugin owner = mock(JavaPlugin.class);
         Plugin candidate = combatLogXPlugin();
@@ -199,6 +255,20 @@ class DirectCombatLogXGatewayTest {
 
     public interface FakeCombatLogXApi {
         FakeCombatManager getCombatManager();
+    }
+
+    public interface FakeBossBarApi extends FakeCombatLogXApi {
+        FakeTimerManager getTimerManager();
+        FakePlayerDataManager getPlayerDataManager();
+    }
+
+    public interface FakeTimerManager {
+        Set<Object> getTimerUpdaters();
+    }
+
+    public interface FakePlayerDataManager {
+        YamlConfiguration get(OfflinePlayer player);
+        void save(OfflinePlayer player);
     }
 
     public interface FakeCombatManager {

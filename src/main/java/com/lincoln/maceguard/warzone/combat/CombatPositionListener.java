@@ -32,18 +32,18 @@ public final class CombatPositionListener implements Listener {
         reconcilePosition(event.getPlayer(), event.getTo());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(PlayerDeathEvent event) {
-        lifecycle.clear(event.getEntity().getUniqueId());
+        lifecycle.clear(event.getEntity());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onQuit(PlayerQuitEvent event) {
-        lifecycle.clear(event.getPlayer().getUniqueId());
+        lifecycle.clear(event.getPlayer());
     }
 
     private void reconcilePosition(Player player, Location destination) {
-        if (scopes.combatBound(player)) scopes.acquireIfEligible(player, destination);
+        lifecycle.positionChanged(player, destination);
     }
 
     private boolean changedBlock(Location from, Location to) {

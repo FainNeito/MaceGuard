@@ -127,7 +127,7 @@ public final class WarzoneRuntime {
                 config.combat().warzoneTag());
         this.combatBar = new WarzoneCombatBar(combatScopes, config.combat().warzoneTag());
         StasisPearlTracker pearls = new StasisPearlTracker();
-        this.combatIntegration = new CombatIntegrationListener(combatScopes, pearls);
+        this.combatIntegration = new CombatIntegrationListener(combatScopes, pearls, combatBar);
         this.combatPositionListener = new CombatPositionListener(combatScopes, combatIntegration);
         this.stasisPearlListener = new StasisPearlListener(combatScopes, pearls, messages,
                 config.combat().stasis().minimumAge());
@@ -148,6 +148,7 @@ public final class WarzoneRuntime {
 
     private void startInternal(boolean activatePendingRecovery) {
         if (activatePendingRecovery) activatePendingCobwebRecovery();
+        combatIntegration.setBarActive(pendingCobwebRecoveryActivated);
         plugin.getServer().getPluginManager().registerEvents(guis, plugin);
         clockTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             rotations.tick();
@@ -164,6 +165,7 @@ public final class WarzoneRuntime {
         if (!config.enabled()) return;
         plugin.getServer().getPluginManager().registerEvents(restrictionListener, plugin);
         plugin.getServer().getPluginManager().registerEvents(combatPositionListener, plugin);
+        plugin.getServer().getPluginManager().registerEvents(combatBar, plugin);
         plugin.getServer().getPluginManager().registerEvents(stasisPearlListener, plugin);
         combatLogX.register(combatIntegration);
         combatIntegration.reconcile(plugin.getServer().getOnlinePlayers());
@@ -181,6 +183,7 @@ public final class WarzoneRuntime {
     void activatePendingCobwebRecovery() {
         if (pendingCobwebRecoveryActivated) return;
         pendingCobwebRecoveryActivated = true;
+        combatIntegration.setBarActive(true);
         combatBar.reconcile(plugin.getServer().getOnlinePlayers());
         clearCobwebsAfterOfflineTransition();
         if (pendingWarzoneCobwebClear && region.fullyResolved()) clearTrackedCobwebs();
@@ -193,13 +196,14 @@ public final class WarzoneRuntime {
         regionRefreshTask = null;
         HandlerList.unregisterAll(restrictionListener);
         HandlerList.unregisterAll(combatPositionListener);
+        HandlerList.unregisterAll(combatBar);
         HandlerList.unregisterAll(stasisPearlListener);
+        combatBar.clear();
         combatLogX.close();
         HandlerList.unregisterAll(guis);
         guis.clear();
         restrictionListener.clear();
         combatIntegration.clear();
-        combatBar.clear();
         visualCooldowns.clearOwned();
         cooldowns.clear();
         if (pluginDisable && config.cobwebs().clearOnDisable()) clearTrackedCobwebs();

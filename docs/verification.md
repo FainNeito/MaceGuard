@@ -2,6 +2,16 @@
 
 ## Local evidence
 
+### Boss bar handoff follow-up, 2026-09-28
+
+- The CombatLogX Boss Bar expansion source inspected for compatibility was `SirBlobman/CombatLogX` `main`: `BossBarUpdater` uses the cached per-player `bossbar` setting and exposes `remove(Player)` through its timer updater. The installed server expansion binary was not inspected.
+- Remote Desktop Commander focused run: 26 tests passed for bar ownership, direct and managed gateway, and combat scope. The first targeted red run confirmed that MaceGuard previously showed its bar without suppressing CombatLogX's bar.
+- Remote Desktop Commander final `clean verify`: 551 tests passed, 0 failures, 0 errors, 0 skipped. JDK 22 was used with Java release 21 and `-Denforcer.skip=true`; JDK 21 enforcement remains unverified.
+- Shaded test artifact: `C:\Users\p_ric\OneDrive\Documents\ChatGPT\Chapter 2\artifacts\maceguard-6.1.8-warzone-bossbar-handoff-test.2.jar` (999,500 bytes). SHA-256: `7B85558DD2FC5D393BD934736F702E630FE9B13A7F160D0D08995573A590C55E`.
+- Live Paper/Leaf and client testing remains open. In particular, confirm the deployed CombatLogX Boss Bar expansion's updater identity, no duplicate bars through handoffs, and preference restoration after death, quit, reload, and dependency disable. An abrupt process crash while another CombatLogX operation has saved the temporary suppressed setting is not covered by the normal restoration path.
+
+### Prior Warzone combat and batch modifier build
+
 Source branch: `codex/warzone-combat-batch-modifiers`, based on `9ea6ad5` (local follow-up tests and SPEAR records added afterward). The implementation predates this SPEAR record, so existing tests are not historical red/green proof.
 
 - Remote Desktop Commander device `Entity` ran Maven 3.9.11 with JDK 22 and Java release 21. Maven enforcer was skipped because the installed JDK is outside the POM's `[21,22)` build contract; JDK 21 verification remains open.
@@ -11,6 +21,8 @@ Source branch: `codex/warzone-combat-batch-modifiers`, based on `9ea6ad5` (local
 - EARS requirements MG-WZ-01 through MG-WZ-06 were reviewed manually; this repository has no project-local SPEAR validator. No live Paper/Leaf or client acceptance was performed.
 
 ## Staging acceptance still required
+
+- Confirm only one combat boss bar exists at each handoff between ordinary CombatLogX combat and Warzone combat. Include combat retags, region exit, untag, death, quit, reload, dependency disable/re-enable, a player with CombatLogX's boss bar turned off, and an interrupted handoff. Inspect the installed Boss Bar expansion version and player preference after the test.
 
 - With CombatLogX tagged inside the effective combat-zone flag, confirm the Warzone bar appears with red fill and orange title, counts down on the CombatLogX timer, survives region exit, and disappears on untag, death, quit, dependency disable, and reload.
 - Confirm ordinary combat outside the flag permits Elytra starts, boosts, Riptide, `/tpa`, `/home`, `/spawn`, and portals after the documented CombatLogX settings are applied. Confirm Warzone combat blocks configured actions after exit while carryover is enabled.
