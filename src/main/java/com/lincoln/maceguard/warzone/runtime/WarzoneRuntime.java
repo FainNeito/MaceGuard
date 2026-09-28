@@ -6,6 +6,7 @@ import com.lincoln.maceguard.warzone.combat.CombatIntegrationListener;
 import com.lincoln.maceguard.warzone.combat.CombatPositionListener;
 import com.lincoln.maceguard.warzone.combat.StasisPearlListener;
 import com.lincoln.maceguard.warzone.combat.CombatScopeService;
+import com.lincoln.maceguard.warzone.combat.WarzoneCombatBar;
 import com.lincoln.maceguard.warzone.combat.CombatLogXGateway;
 import com.lincoln.maceguard.warzone.combat.CombatLogXGatewayFactory;
 import com.lincoln.maceguard.warzone.combat.StasisPearlTracker;
@@ -60,6 +61,7 @@ public final class WarzoneRuntime {
     private final VisualCooldownService visualCooldowns;
     private final RestrictionService restrictions;
     private final CombatScopeService combatScopes;
+    private final WarzoneCombatBar combatBar;
     private final CombatIntegrationListener combatIntegration;
     private final CombatPositionListener combatPositionListener;
     private final StasisPearlListener stasisPearlListener;
@@ -121,7 +123,9 @@ public final class WarzoneRuntime {
         this.messages.bind(rotations);
         this.guis = new WarzoneGuiManager(plugin, this);
         this.combatLogX = CombatLogXGatewayFactory.discover(plugin);
-        this.combatScopes = new CombatScopeService(combatLogX, queries);
+        this.combatScopes = new CombatScopeService(combatLogX, queries,
+                config.combat().warzoneTag());
+        this.combatBar = new WarzoneCombatBar(combatScopes, config.combat().warzoneTag());
         StasisPearlTracker pearls = new StasisPearlTracker();
         this.combatIntegration = new CombatIntegrationListener(combatScopes, pearls);
         this.combatPositionListener = new CombatPositionListener(combatScopes, combatIntegration);
@@ -151,6 +155,8 @@ public final class WarzoneRuntime {
             messages.cleanup();
             restrictionListener.cleanup();
             combatIntegration.cleanup();
+            if (pendingCobwebRecoveryActivated)
+                combatBar.reconcile(plugin.getServer().getOnlinePlayers());
             guis.cleanup();
             if (pendingCobwebRecoveryActivated && pendingWarzoneCobwebClear
                     && region.fullyResolved()) clearTrackedCobwebs();
@@ -161,6 +167,8 @@ public final class WarzoneRuntime {
         plugin.getServer().getPluginManager().registerEvents(stasisPearlListener, plugin);
         combatLogX.register(combatIntegration);
         combatIntegration.reconcile(plugin.getServer().getOnlinePlayers());
+        if (pendingCobwebRecoveryActivated)
+            combatBar.reconcile(plugin.getServer().getOnlinePlayers());
         restrictionListener.reconcileVisualCooldowns(plugin.getServer().getOnlinePlayers());
         regionRefreshTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             boolean resolved = region.refresh();
@@ -173,6 +181,7 @@ public final class WarzoneRuntime {
     void activatePendingCobwebRecovery() {
         if (pendingCobwebRecoveryActivated) return;
         pendingCobwebRecoveryActivated = true;
+        combatBar.reconcile(plugin.getServer().getOnlinePlayers());
         clearCobwebsAfterOfflineTransition();
         if (pendingWarzoneCobwebClear && region.fullyResolved()) clearTrackedCobwebs();
     }
@@ -190,6 +199,7 @@ public final class WarzoneRuntime {
         guis.clear();
         restrictionListener.clear();
         combatIntegration.clear();
+        combatBar.clear();
         visualCooldowns.clearOwned();
         cooldowns.clear();
         if (pluginDisable && config.cobwebs().clearOnDisable()) clearTrackedCobwebs();

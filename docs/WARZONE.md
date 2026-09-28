@@ -156,7 +156,9 @@ warzonerotator-combat-zone
 warzonerotator-stasis
 ```
 
-An effective `warzonerotator-combat-zone: allow` can give a CombatLogX-tagged player a transient latch. Acquisition occurs when the player is tagged or retagged while inside the flag, or when an already-tagged player moves or teleports into it. Only the player's own location is evaluated. The latch remains after region exit until untag, death, logout, reload replacement, plugin disable, or CombatLogX dependency disable. A CombatLogX bypassed player cannot acquire or retain it. CombatLogX disable drops the direct adapter and all API/classloader references; a compatible enable constructs a fresh generation and reconciles online players. Retired-generation callbacks are ignored.
+An effective `warzonerotator-combat-zone: allow` can give a CombatLogX-tagged player a transient Warzone combat latch. Acquisition occurs when the player is tagged or retagged while inside the flag, or when an already-tagged player moves or teleports into it. Only the player's own location is evaluated. The latch remains after region exit until untag, death, logout, reload replacement, plugin disable, or CombatLogX dependency disable. A CombatLogX bypassed player cannot acquire or retain it. CombatLogX disable drops the direct adapter and all API/classloader references; a compatible enable constructs a fresh generation and reconciles online players. Retired-generation callbacks are ignored.
+
+`combat.warzone-tag.enabled` turns this latch on or off. `carry-restrictions-outside` controls whether eligible Warzone restrictions continue after region exit while the CombatLogX tag remains. `prevent-riptide` and `prevent-teleportation` apply only to a latched player in the Warzone or during enabled carryover; successful Ender Pearl teleports retain their separate stasis policy. The optional boss bar uses CombatLogX's remaining and maximum seconds, so its progress and expiry follow the existing combat timer. Its title uses the configured RGB text color (`#EE4B00` by default); vanilla clients support only preset fill colors, so the default fill is red. The bar remains visible outside the region until the Warzone combat latch ends, even when restriction carryover is disabled.
 
 The effective `warzonerotator-stasis` value is captured when the latch is acquired. A denied result remains denied for that latch even after the player leaves. Absent or allowed does not prohibit stasis. Flag lookup failures fail closed to *no additional MaceGuard restriction*; they never expand to a world-wide fallback.
 
@@ -174,7 +176,7 @@ Inside the configured Warzone, active modifiers continue to work normally. Outsi
 
 Only documented combat item and ability targets can carry. Mace, Ender Pearl, Wind Charge, Spear, Spear damage, Spear Lunge, and the Elytra allowance are eligible. Trident remains location-bound and validation rejects Trident carryover. Validation also rejects carryover for cobwebs, crystals, respawn anchors, block/environment rules, reset behavior, and other world mutation.
 
-During combat, a player cannot normally begin gliding. A player already gliding when tagged is not forced down. A latched player may start gliding only while the live `ELYTRA_NO_ROCKETS` effect applies in the current scope, including its carryover rule after region exit. `PlayerElytraBoostEvent` is canceled during combat, so actual propulsion is blocked without canceling ordinary firework use. CombatLogX remains responsible for holding the combat timer while gliding. Elytra and firework policy is not a timed item cooldown: blocked starts and actual boosts receive explanatory chat, but no invented duration or shaded Elytra/firework bar.
+Ordinary CombatLogX combat outside Warzone leaves Elytra starts, boosts, and Riptide available. A latched player may start gliding only while the live `ELYTRA_NO_ROCKETS` effect applies in the current scope, including its carryover rule after region exit. A player already gliding when tagged is not forced down. `PlayerElytraBoostEvent` is canceled only while Warzone combat restrictions apply, without canceling ordinary firework use. CombatLogX remains responsible for holding the combat timer while gliding. Elytra and firework policy is not a timed item cooldown: blocked starts and actual boosts receive explanatory chat, but no invented duration or shaded Elytra/firework bar.
 
 ## Player feedback and message templates
 
@@ -308,7 +310,7 @@ The listener cancels:
 
 Closing before final confirmation cancels the operation.
 
-The preview screen separates current/proposed source and modifiers, additions, removals, and kit detachment. Confirmation is explicit. The duration screen uses a clock, compass, and lever, and includes the exact next boundary and next entry in the next-schedule option.
+The modifier management screen keeps a draft selection across pages. Clicking enabled modifiers toggles them without changing the live selection; Review Changes validates the entire set and opens the preview once. The preview screen separates current/proposed source and modifiers, additions, removals, and kit detachment. Confirmation is explicit. The duration screen uses a clock, compass, and lever, and includes the exact next boundary and next entry in the next-schedule option.
 
 ## Permissions
 

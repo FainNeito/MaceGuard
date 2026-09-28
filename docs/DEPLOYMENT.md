@@ -34,15 +34,15 @@ prevent-elytra: false
 force-prevent-elytra: false
 elytra-retag: true
 prevent-fireworks: false
-prevent-riptide: true
+prevent-riptide: false
 riptide-retag: false
 ```
 
-MaceGuard cancels only `PlayerElytraBoostEvent`; ordinary firework launching must remain available. Set `teleportation.yml` to:
+MaceGuard cancels Elytra boosts and Riptide only for Warzone combat-tagged players under the configured carryover policy. Ordinary combat outside Warzone remains free to use Elytra, fireworks, and Riptide. Ordinary firework launching must remain available. Set `teleportation.yml` to:
 
 ```yaml
-prevent-portals: true
-prevent-teleportation: true
+prevent-portals: false
+prevent-teleportation: false
 
 allowed-teleport-cause-list:
   - ENDER_PEARL
@@ -51,7 +51,7 @@ ender-pearl-retag: true
 untag: false
 ```
 
-Remove `PLUGIN` and `UNKNOWN` from the allow list. This leaves successful Ender Pearl teleports available for CombatLogX retagging and MaceGuard's aged-pearl decision while CombatLogX blocks `/tpa`, `/home`, `/spawn`, other plugin teleports, and portals during combat. Validate server-specific plugins in staging rather than weakening the allow list preemptively.
+MaceGuard now blocks `/tpa`, `/home`, `/spawn`, other plugin teleports, and portals only while Warzone combat restrictions apply. Ender Pearl teleports remain available for CombatLogX retagging and MaceGuard's aged-pearl decision. Validate server-specific plugins and portal event order in staging.
 
 
 ### Direct CombatLogX API boundary
