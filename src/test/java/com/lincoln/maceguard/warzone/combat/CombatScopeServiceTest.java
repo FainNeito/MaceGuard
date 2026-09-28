@@ -1,6 +1,7 @@
 package com.lincoln.maceguard.warzone.combat;
 
 import com.lincoln.maceguard.worldguard.WorldGuardQueryService;
+import com.lincoln.maceguard.warzone.config.WarzoneConfig;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,6 +76,27 @@ class CombatScopeServiceTest {
         when(combat.inCombat(player)).thenReturn(false);
         assertFalse(scopes.combatBound(player));
         assertTrue(scopes.latch(playerId).isEmpty());
+    }
+
+    @Test void disabledCarryoverKeepsTagButStopsOutsideRestrictions() {
+        WarzoneConfig.WarzoneTag tag = new WarzoneConfig.WarzoneTag(true, false,
+                true, "Warzone Combat", "#EE4B00", "RED", true, true);
+        scopes = new CombatScopeService(combat, worldGuard, tag);
+        assertTrue(scopes.acquireIfEligible(player, inside));
+        assertTrue(scopes.warzoneTagged(player));
+        assertTrue(scopes.restrictionsApply(player, true));
+        assertFalse(scopes.restrictionsApply(player, false));
+        assertFalse(scopes.carryoverEligible(player));
+        assertFalse(scopes.riptideBlocked(player, false));
+        assertFalse(scopes.teleportBlocked(player, false));
+    }
+
+    @Test void ordinaryCombatOutsideWarzoneNeverAcquiresRestrictions() {
+        assertFalse(scopes.acquireIfEligible(player, outside));
+        assertFalse(scopes.warzoneTagged(player));
+        assertFalse(scopes.restrictionsApply(player, false));
+        assertFalse(scopes.riptideBlocked(player, false));
+        assertFalse(scopes.teleportBlocked(player, false));
     }
 
     @Test void laterAllowedRegionCannotEraseCapturedStasisDeny() {

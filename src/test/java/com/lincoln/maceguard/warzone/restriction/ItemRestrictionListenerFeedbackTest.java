@@ -197,6 +197,8 @@ class ItemRestrictionListenerFeedbackTest {
     @Test void elytraAndActualBoostDenialsMessageWithoutFakeCooldown() {
         Harness harness = harness(Map.of());
         when(harness.combatScopes.combatBound(harness.player)).thenReturn(true);
+        when(harness.combatScopes.warzoneTagged(harness.player)).thenReturn(true);
+        when(harness.combatScopes.restrictionsApply(eq(harness.player), eq(true))).thenReturn(true);
         EntityToggleGlideEvent glide = mock(EntityToggleGlideEvent.class);
         when(glide.getEntity()).thenReturn(harness.player);
         when(glide.isGliding()).thenReturn(true);
