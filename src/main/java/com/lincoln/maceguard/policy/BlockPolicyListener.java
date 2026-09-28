@@ -88,10 +88,12 @@ public final class BlockPolicyListener implements Listener {
         Block targetBlock = original.getToBlock();
         BlockPolicyResolver.Resolution source = resolve(sourceBlock.getLocation());
         BlockPolicyResolver.Resolution target = resolve(targetBlock.getLocation());
-        if (!source.referenced() && !target.referenced()) return;
         boolean createsInfiniteWater = sourceBlock.getType() == Material.WATER
                 && createsInfiniteSource(targetBlock);
-        if (!flowDenied(source, target, createsInfiniteWater)) event.setAllowed(true);
+        if (((source.referenced() || target.referenced())
+                && !flowDenied(source, target, createsInfiniteWater))
+                || warzoneWaterMayCrossPolicyBoundary(sourceBlock, targetBlock,
+                source, target, createsInfiniteWater)) event.setAllowed(true);
     }
 
     /** Same scoped exception for WorldGuard's bucket-fill BreakBlockEvent delegate. */
@@ -178,11 +180,20 @@ public final class BlockPolicyListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onFlow(BlockFromToEvent event) {
+        // The source's water-flow flag does not protect destinations such as the nested spawn.
+        if (warzone != null && event.getBlock().getType() == Material.WATER
+                && warzone.appliesAt(event.getBlock().getLocation())
+                && !warzone.appliesAt(event.getToBlock().getLocation())) {
+            event.setCancelled(true);
+            return;
+        }
         BlockPolicyResolver.Resolution source = resolve(event.getBlock().getLocation());
         BlockPolicyResolver.Resolution target = resolve(event.getToBlock().getLocation());
         boolean createsInfiniteWater = event.getBlock().getType() == Material.WATER
                 && createsInfiniteSource(event.getToBlock());
-        if (flowDenied(source, target, createsInfiniteWater)) event.setCancelled(true);
+        if (flowDenied(source, target, createsInfiniteWater)
+                && !warzoneWaterMayCrossPolicyBoundary(event.getBlock(), event.getToBlock(),
+                source, target, createsInfiniteWater)) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -310,6 +321,26 @@ public final class BlockPolicyListener implements Listener {
                     && createsInfiniteWaterSource) return true;
         }
         return false;
+    }
+
+    /**
+     * The COBWEBS modifier permits water flow throughout the effective Warzone, including
+     * locations without a named block policy. WorldGuard's build deny otherwise stops each
+     * spread even when its water-flow flag allows it. Keep invalid policy references and
+     * infinite-source prevention intact; never grant flow into the nested safe zone.
+     */
+    private boolean warzoneWaterMayCrossPolicyBoundary(Block sourceBlock, Block targetBlock,
+                                                        BlockPolicyResolver.Resolution source,
+                                                        BlockPolicyResolver.Resolution target,
+                                                        boolean createsInfiniteWaterSource) {
+        if (warzone == null || sourceBlock.getType() != Material.WATER
+                || createsInfiniteWaterSource
+                || source.referenced() && source.policy() == null
+                || target.referenced() && target.policy() == null) return false;
+        var runtime = warzone.runtime();
+        return runtime != null && runtime.rotations().active().cobwebsAllowed()
+                && warzone.appliesAt(sourceBlock.getLocation())
+                && warzone.appliesAt(targetBlock.getLocation());
     }
 
     static boolean automationDenied(BlockPolicyResolver.Resolution resolution) {

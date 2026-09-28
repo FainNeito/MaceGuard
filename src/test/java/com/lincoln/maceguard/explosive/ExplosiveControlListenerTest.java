@@ -14,7 +14,9 @@ import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Arrow;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
@@ -214,6 +216,52 @@ class ExplosiveControlListenerTest {
         verify(event, never()).setCancelled(true);
     }
 
+    @Test void worldGuardArrowGrantIncludesSelfDamageInsideWarzone() {
+        CartHarness harness = cartHarness();
+        Player shooter = mock(Player.class);
+        Arrow arrow = mock(Arrow.class);
+        EntityDamageByEntityEvent original = mock(EntityDamageByEntityEvent.class);
+        com.sk89q.worldguard.bukkit.event.entity.DamageEntityEvent delegate =
+                mock(com.sk89q.worldguard.bukkit.event.entity.DamageEntityEvent.class);
+        when(arrow.getShooter()).thenReturn(shooter);
+        when(original.getDamager()).thenReturn(arrow);
+        when(original.getEntity()).thenReturn(shooter);
+        when(original.isCancelled()).thenReturn(false);
+        when(delegate.getOriginalEvent()).thenReturn(original);
+        when(delegate.getEntity()).thenReturn(shooter);
+        when(delegate.getTarget()).thenReturn(harness.location);
+        when(shooter.getLocation()).thenReturn(harness.location);
+
+        harness.listener.onWorldGuardWarzoneArrowDamage(delegate);
+
+        verify(delegate).setAllowed(true);
+    }
+
+    @Test void worldGuardArrowGrantDoesNotReachOutsideWarzone() {
+        CartHarness harness = cartHarness();
+        Player shooter = mock(Player.class);
+        Player target = mock(Player.class);
+        Arrow arrow = mock(Arrow.class);
+        Location outside = mock(Location.class);
+        EntityDamageByEntityEvent original = mock(EntityDamageByEntityEvent.class);
+        com.sk89q.worldguard.bukkit.event.entity.DamageEntityEvent delegate =
+                mock(com.sk89q.worldguard.bukkit.event.entity.DamageEntityEvent.class);
+        when(arrow.getShooter()).thenReturn(shooter);
+        when(original.getDamager()).thenReturn(arrow);
+        when(original.getEntity()).thenReturn(target);
+        when(original.isCancelled()).thenReturn(false);
+        when(delegate.getOriginalEvent()).thenReturn(original);
+        when(delegate.getEntity()).thenReturn(target);
+        when(delegate.getTarget()).thenReturn(outside);
+        when(shooter.getLocation()).thenReturn(harness.location);
+        when(harness.runtime.appliesAt(outside)).thenReturn(false);
+        when(harness.module.appliesAt(outside)).thenReturn(false);
+
+        harness.listener.onWorldGuardWarzoneArrowDamage(delegate);
+
+        verify(delegate, never()).setAllowed(true);
+    }
+
     @Test void windBurstClassificationRequiresMaceAndEnchant() {
         assertTrue(ExplosiveControlListener.isWindBurstMace(Material.MACE, true));
         assertFalse(ExplosiveControlListener.isWindBurstMace(Material.MACE, false));
@@ -271,15 +319,16 @@ class ExplosiveControlListenerTest {
         when(plugin.runtime()).thenReturn(pluginRuntime);
         when(pluginRuntime.warzone()).thenReturn(module);
         when(module.runtime()).thenReturn(runtime);
+        when(module.appliesAt(any(Location.class))).thenReturn(true);
         when(runtime.appliesAt(location)).thenReturn(true);
         when(runtime.rotations()).thenReturn(rotations);
         when(rotations.active()).thenReturn(active);
 
         return new CartHarness(new ExplosiveControlListener(plugin, worldGuard, entity -> false),
-                worldGuard, runtime, location);
+                worldGuard, runtime, module, location);
     }
 
     private record CartHarness(ExplosiveControlListener listener,
                                WorldGuardQueryService worldGuard,
-                               WarzoneRuntime runtime, Location location) { }
+                               WarzoneRuntime runtime, WarzoneModule module, Location location) { }
 }

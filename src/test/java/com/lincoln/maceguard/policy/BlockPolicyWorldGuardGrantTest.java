@@ -27,6 +27,91 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class BlockPolicyWorldGuardGrantTest {
+    @Test void cobwebWaterWithoutNamedPolicyGainsFlowGrant() {
+        var flow = new CobwebFlow(true, true, Material.COBWEB);
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate).setAllowed(true);
+        flow.listener.onFlow(flow.event);
+        verify(flow.event, never()).setCancelled(true);
+    }
+
+    @Test void cobwebWaterCanSpreadThroughAirBeforeReachingWeb() {
+        var flow = new CobwebFlow(true, true, Material.AIR);
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate).setAllowed(true);
+    }
+
+    @Test void inactiveCobwebModifierDoesNotGrantWaterFlow() {
+        var flow = new CobwebFlow(false, true, Material.COBWEB);
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate, never()).setAllowed(true);
+    }
+
+    @Test void waterCannotFlowOutOfWarzoneOrIntoNestedSafeZone() {
+        var flow = new CobwebFlow(true, false, Material.AIR);
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate, never()).setAllowed(true);
+        flow.listener.onFlow(flow.event);
+        verify(flow.event).setCancelled(true);
+    }
+
+    @Test void cobwebWaterPreservesOtherPluginCancellation() {
+        var flow = new CobwebFlow(true, true, Material.COBWEB);
+        when(flow.event.isCancelled()).thenReturn(true);
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate, never()).setAllowed(true);
+    }
+
+    @Test void lavaDoesNotGainCobwebWaterGrant() {
+        var flow = new CobwebFlow(true, true, Material.COBWEB);
+        when(flow.source.getType()).thenReturn(Material.LAVA);
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate, never()).setAllowed(true);
+    }
+
+    @Test void missingNamedPolicyStillDeniesCobwebWater() {
+        var flow = new CobwebFlow(true, true, Material.COBWEB);
+        when(flow.resolver.resolve(flow.target.getLocation())).thenReturn(
+                new BlockPolicyResolver.Resolution("warzone", "missing", null, true,
+                        "direct", false, BlockPolicyResolver.Status.REFERENCED_POLICY_MISSING));
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate, never()).setAllowed(true);
+        flow.listener.onFlow(flow.event);
+        verify(flow.event).setCancelled(true);
+    }
+
+    private final class CobwebFlow {
+        final BlockPolicyResolver resolver = mock(BlockPolicyResolver.class);
+        final Block source = block(Material.WATER, mock(Location.class));
+        final Block target;
+        final BlockFromToEvent event = mock(BlockFromToEvent.class);
+        final com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent delegate =
+                mock(com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent.class);
+        final BlockPolicyListener listener;
+
+        CobwebFlow(boolean activeCobwebs, boolean targetInWarzone, Material targetType) {
+            target = block(targetType, mock(Location.class));
+            Block neighbor = block(Material.AIR, mock(Location.class));
+            when(target.getRelative(any(BlockFace.class))).thenReturn(neighbor);
+            WarzoneModule warzone = mock(WarzoneModule.class);
+            WarzoneRuntime runtime = mock(WarzoneRuntime.class);
+            RotationManager rotations = mock(RotationManager.class);
+            when(warzone.runtime()).thenReturn(runtime);
+            when(runtime.rotations()).thenReturn(rotations);
+            when(rotations.active()).thenReturn(new WarzoneConfig.ActiveSet(
+                    List.of(), "Test", "Test", activeCobwebs
+                    ? Set.of(WarzoneConfig.Effect.COBWEBS) : Set.of(), Map.of()));
+            when(warzone.appliesAt(source.getLocation())).thenReturn(true);
+            when(warzone.appliesAt(target.getLocation())).thenReturn(targetInWarzone);
+            when(resolver.resolve(any(Location.class))).thenReturn(
+                    BlockPolicyResolver.Resolution.none(BlockPolicyResolver.Status.NO_EFFECTIVE_VALUE));
+            when(event.getBlock()).thenReturn(source);
+            when(event.getToBlock()).thenReturn(target);
+            when(delegate.getOriginalEvent()).thenReturn(event);
+            listener = new BlockPolicyListener(resolver, warzone, (location, player) -> false);
+        }
+    }
+
     private final BlockPolicy policy = new BlockPolicy(
             "warzone-fluids",
             new BlockPolicy.MaterialRule(true, Set.of(Material.COBWEB)),

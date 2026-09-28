@@ -271,9 +271,20 @@ Tab completion must hide management operations without their focused permission 
 
 MaceGuard 6 retains the existing WorldGuard block-policy, temporary-block recovery, explosion, snapshot, and reset safety. Stage at least:
 
+For the COBWEBS modifier, the effective Warzone region must allow WorldGuard's
+`water-flow` flag. An explicit `water-flow: deny` blocks natural flow before the
+MaceGuard build-permission grant can take effect. Check the Warzone and nested
+safe-zone flags separately; MaceGuard confines its grant to the effective Warzone.
+Do not copy this flag change into production without the corresponding gameplay
+acceptance check.
+
 - normal and emergency temporary-cobweb persistence, bounded recovery, chunk tickets, restart, and changed-block protection;
 - a real burst of at least 100 managed cobwebs through TTL and full cleanup;
 - source and flowing-water restoration under Paper block-data serialization;
+- water flowing through air into a managed cobweb while COBWEBS is active, with
+  no flow into the nested safe zone or outside the effective Warzone;
+- an arrow crossing fire, then hitting a player-placed TNT minecart while CARTS
+  is active; verify ignition, explosion, and cleanup with a real player shooter;
 - direct, inherited, and `__global__` block-policy diagnostics;
 - full and filtered snapshot validation, exclusions, checksums, arming, one-use plan tokens, journals, and interrupted-operation recovery;
 - plugin reload and shutdown while normal TTL tracking or emergency recovery is active.

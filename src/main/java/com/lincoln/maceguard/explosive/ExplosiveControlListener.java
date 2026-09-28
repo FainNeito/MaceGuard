@@ -7,6 +7,7 @@ import com.lincoln.maceguard.temporary.TemporaryBlockService;
 import com.lincoln.maceguard.warzone.runtime.WarzoneModule;
 import com.lincoln.maceguard.warzone.runtime.WarzoneRuntime;
 import com.lincoln.maceguard.worldguard.WorldGuardQueryService;
+import io.papermc.paper.event.entity.EntityInsideBlockEvent;
 import org.bukkit.ExplosionResult;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -193,7 +194,7 @@ public final class ExplosiveControlListener implements Listener {
     public void onWorldGuardCartSpawn(
             com.sk89q.worldguard.bukkit.event.entity.SpawnEntityEvent event) {
         if (event.getEffectiveType() != EntityType.TNT_MINECART) return;
-        Player player = event.getCause().getFirstPlayer();
+        Player player = cartPlacementPlayer(event);
         if (player == null || !cartModifierActive(event.getTarget()) || !cartPlacementReady()) return;
         if (!worldGuard.vehiclePlaceAllowed(event.getTarget(), player)) event.setAllowed(true);
     }
@@ -238,6 +239,29 @@ public final class ExplosiveControlListener implements Listener {
                 && isCurrentCartArtifact(target) && cartModifierActive(event.getTarget())) {
             event.setAllowed(true);
         }
+    }
+
+    /** Paper does not reliably ignite arrows that pass through fire in protected regions. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onArrowInsideFire(EntityInsideBlockEvent event) {
+        if (!(event.getEntity() instanceof Arrow arrow)) return;
+        Material block = event.getBlock().getType();
+        if (block != Material.FIRE && block != Material.SOUL_FIRE) return;
+        if (arrow.getFireTicks() > 0 || !cartModifierActive(event.getBlock().getLocation())) return;
+        arrow.setFireTicks(300);
+    }
+
+    /** WorldGuard's PvP delegate can reject an arrow hit before Bukkit damage listeners run. */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onWorldGuardWarzoneArrowDamage(
+            com.sk89q.worldguard.bukkit.event.entity.DamageEntityEvent event) {
+        if (!(event.getOriginalEvent() instanceof EntityDamageByEntityEvent original)
+                || original.isCancelled()
+                || !(original.getDamager() instanceof Arrow arrow)
+                || !(arrow.getShooter() instanceof Player shooter)
+                || !(event.getEntity() instanceof Player target)
+                || !warzoneAppliesTo(shooter, event.getTarget())) return;
+        event.setAllowed(true);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -286,6 +310,17 @@ public final class ExplosiveControlListener implements Listener {
                 && !worldGuard.lighterAllowed(fire, original.getPlayer())) {
             delegate.setAllowed(true);
         }
+    }
+
+    private static Player cartPlacementPlayer(
+            com.sk89q.worldguard.bukkit.event.entity.SpawnEntityEvent event) {
+        Player player = event.getCause().getFirstPlayer();
+        if (player != null) return player;
+        if (event.getOriginalEvent() instanceof EntityPlaceEvent original)
+            return original.getPlayer();
+        if (event.getOriginalEvent() instanceof PlayerInteractEvent original)
+            return original.getPlayer();
+        return null;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
