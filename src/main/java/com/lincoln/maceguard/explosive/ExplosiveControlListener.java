@@ -147,6 +147,14 @@ public final class ExplosiveControlListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onWorldGuardCartBlockPlace(
             com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent event) {
+        if (event.getOriginalEvent() instanceof PlayerInteractEvent original) {
+            // WorldGuard checks lighting candles/campfires as a block modification before ignition.
+            if (cartFlintInteraction(original)
+                    && isIgnitableDecoration(event.getEffectiveMaterial())) {
+                event.setAllowed(true);
+            }
+            return;
+        }
         if (event.getOriginalEvent() instanceof BlockPlaceEvent original) {
             if (original.isCancelled()) return;
             Location location = original.getBlockPlaced().getLocation();
@@ -162,7 +170,7 @@ public final class ExplosiveControlListener implements Listener {
                     || original.getPlayer() == null) return;
             Location location = original.getBlock().getLocation();
             if (cartModifierActive(location)
-                    && !worldGuard.lighterAllowed(location, original.getPlayer())) {
+                    && warzoneAppliesTo(original.getPlayer(), location)) {
                 event.setAllowed(true);
             }
         }
@@ -211,7 +219,7 @@ public final class ExplosiveControlListener implements Listener {
                 ? original.getPlayer().getInventory().getItemInMainHand()
                 : original.getPlayer().getInventory().getItemInOffHand();
         if (item.getType() == Material.FLINT_AND_STEEL
-                && !worldGuard.lighterAllowed(event.getTarget(), original.getPlayer())) {
+                && warzoneAppliesTo(original.getPlayer(), event.getTarget())) {
             event.setAllowed(true);
         }
     }
@@ -307,11 +315,36 @@ public final class ExplosiveControlListener implements Listener {
             return;
         }
 
-        Location fire = clicked.getRelative(original.getBlockFace()).getLocation();
-        if (item.getType() == Material.FLINT_AND_STEEL && cartModifierActive(fire)
-                && !worldGuard.lighterAllowed(fire, original.getPlayer())) {
+        if (cartFlintInteraction(original)) {
             delegate.setAllowed(true);
         }
+    }
+
+    private boolean cartFlintInteraction(PlayerInteractEvent original) {
+        if (original.isCancelled()
+                || original.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK
+                || original.getItem() == null
+                || original.getItem().getType() != Material.FLINT_AND_STEEL
+                || original.getClickedBlock() == null) return false;
+        Block clicked = original.getClickedBlock();
+        Material material = clicked.getType();
+        // Holding a lighter must not grant chest/door access or ordinary TNT priming.
+        if (material == Material.TNT
+                || isInteractableMaterial(material) && !isIgnitableDecoration(material)) return false;
+        Location fire = clicked.getRelative(original.getBlockFace()).getLocation();
+        return cartModifierActive(clicked.getLocation()) && cartModifierActive(fire)
+                && warzoneAppliesTo(original.getPlayer(), fire);
+    }
+
+    // Paper's material classification needs its live server registry; isolate it for routing tests.
+    boolean isInteractableMaterial(Material material) {
+        return material.isInteractable();
+    }
+
+    private static boolean isIgnitableDecoration(Material material) {
+        return material != null && (material == Material.CAMPFIRE
+                || material == Material.SOUL_CAMPFIRE || material.name().endsWith("CANDLE")
+                || material.name().endsWith("CANDLE_CAKE"));
     }
 
     private static Player cartPlacementPlayer(

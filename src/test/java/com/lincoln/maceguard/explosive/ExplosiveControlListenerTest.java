@@ -36,6 +36,135 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ExplosiveControlListenerTest {
+    @Test void cartsGrantFlintBlockAndItemUseEvenWhenLighterAlreadyAllowed() {
+        FlintHarness f = new FlintHarness();
+        when(f.cart.worldGuard.lighterAllowed(f.cart.location, f.player)).thenReturn(true);
+        f.cart.listener.onWorldGuardCartUseBlock(f.blockUse);
+        f.cart.listener.onWorldGuardCartUseItem(f.itemUse);
+        verify(f.blockUse).setAllowed(true);
+        verify(f.itemUse).setAllowed(true);
+        verify(f.interaction, never()).setCancelled(false);
+    }
+
+    @Test void cartsOffDoNotGrantFlintUse() {
+        FlintHarness f = new FlintHarness();
+        when(f.cart.runtime.rotations().active()).thenReturn(new WarzoneConfig.ActiveSet(
+                java.util.List.of(), "None", "None", Set.of(), Map.of()));
+        f.cart.listener.onWorldGuardCartUseBlock(f.blockUse);
+        f.cart.listener.onWorldGuardCartUseItem(f.itemUse);
+        verify(f.blockUse, never()).setAllowed(true);
+        verify(f.itemUse, never()).setAllowed(true);
+    }
+
+    @Test void flintCannotCrossIntoSpawnOrOutsideWarzone() {
+        FlintHarness f = new FlintHarness();
+        Location outside = mock(Location.class);
+        when(f.fire.getLocation()).thenReturn(outside);
+        when(f.cart.runtime.appliesAt(outside)).thenReturn(false);
+        f.cart.listener.onWorldGuardCartUseBlock(f.blockUse);
+        verify(f.blockUse, never()).setAllowed(true);
+    }
+
+    @Test void playerOutsideWarzoneCannotGainFlintGrant() {
+        FlintHarness f = new FlintHarness();
+        Location outside = mock(Location.class);
+        when(f.player.getLocation()).thenReturn(outside);
+        when(f.cart.module.appliesAt(outside)).thenReturn(false);
+        f.cart.listener.onWorldGuardCartUseBlock(f.blockUse);
+        verify(f.blockUse, never()).setAllowed(true);
+    }
+
+    @Test void cancelledAndLeftClickFlintInteractionsAreNotReopened() {
+        FlintHarness f = new FlintHarness();
+        when(f.interaction.isCancelled()).thenReturn(true);
+        f.cart.listener.onWorldGuardCartUseBlock(f.blockUse);
+        when(f.interaction.isCancelled()).thenReturn(false);
+        when(f.interaction.getAction()).thenReturn(org.bukkit.event.block.Action.LEFT_CLICK_BLOCK);
+        f.cart.listener.onWorldGuardCartUseItem(f.itemUse);
+        verify(f.blockUse, never()).setAllowed(true);
+        verify(f.itemUse, never()).setAllowed(true);
+    }
+
+    @Test void flintGrantDoesNotPermitOrdinaryBlockPlacementOrTnt() {
+        FlintHarness f = new FlintHarness();
+        var place = mock(com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent.class);
+        when(place.getOriginalEvent()).thenReturn(f.interaction);
+        for (Material material : java.util.List.of(Material.STONE, Material.TNT, Material.NETHER_PORTAL)) {
+            when(place.getEffectiveMaterial()).thenReturn(material);
+            f.cart.listener.onWorldGuardCartBlockPlace(place);
+        }
+        verify(place, never()).setAllowed(true);
+    }
+
+    @Test void flintGrantCoversCandleAndCampfireModification() {
+        FlintHarness f = new FlintHarness();
+        for (Material material : java.util.List.of(Material.CANDLE, Material.RED_CANDLE,
+                Material.CANDLE_CAKE, Material.RED_CANDLE_CAKE, Material.CAMPFIRE, Material.SOUL_CAMPFIRE)) {
+            var place = mock(com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent.class);
+            when(place.getOriginalEvent()).thenReturn(f.interaction);
+            when(place.getEffectiveMaterial()).thenReturn(material);
+            f.cart.listener.onWorldGuardCartBlockPlace(place);
+            verify(place).setAllowed(true);
+        }
+    }
+
+    @Test void fireIgnitionGrantDoesNotDependOnLighterFlagDenial() {
+        FlintHarness f = new FlintHarness();
+        var original = mock(org.bukkit.event.block.BlockIgniteEvent.class);
+        var place = mock(com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent.class);
+        when(original.getCause()).thenReturn(org.bukkit.event.block.BlockIgniteEvent.IgniteCause.FLINT_AND_STEEL);
+        when(original.getPlayer()).thenReturn(f.player);
+        when(original.getBlock()).thenReturn(f.fire);
+        when(place.getOriginalEvent()).thenReturn(original);
+        when(f.cart.worldGuard.lighterAllowed(f.cart.location, f.player)).thenReturn(true);
+        f.cart.listener.onWorldGuardCartBlockPlace(place);
+        verify(place).setAllowed(true);
+        verify(original, never()).setCancelled(false);
+    }
+
+    @Test void holdingFlintDoesNotGrantChestDoorOrOrdinaryTntAccess() {
+        FlintHarness f = new FlintHarness();
+        for (Material material : java.util.List.of(Material.CHEST, Material.OAK_DOOR, Material.TNT)) {
+            when(f.clicked.getType()).thenReturn(material);
+            f.cart.listener.onWorldGuardCartUseBlock(f.blockUse);
+        }
+        verify(f.blockUse, never()).setAllowed(true);
+    }
+
+    private final class FlintHarness {
+        final CartHarness cart = cartHarness();
+        final Player player = mock(Player.class);
+        final Block clicked = mock(Block.class);
+        final Block fire = mock(Block.class);
+        final org.bukkit.event.player.PlayerInteractEvent interaction =
+                mock(org.bukkit.event.player.PlayerInteractEvent.class);
+        final com.sk89q.worldguard.bukkit.event.block.UseBlockEvent blockUse =
+                mock(com.sk89q.worldguard.bukkit.event.block.UseBlockEvent.class);
+        final com.sk89q.worldguard.bukkit.event.inventory.UseItemEvent itemUse =
+                mock(com.sk89q.worldguard.bukkit.event.inventory.UseItemEvent.class);
+
+        FlintHarness() {
+            org.mockito.Mockito.doAnswer(invocation -> {
+                Material material = invocation.getArgument(0);
+                return material == Material.CHEST || material == Material.OAK_DOOR;
+            }).when(cart.listener).isInteractableMaterial(any(Material.class));
+            var item = mock(org.bukkit.inventory.ItemStack.class);
+            when(item.getType()).thenReturn(Material.FLINT_AND_STEEL);
+            when(interaction.getItem()).thenReturn(item);
+            when(interaction.getPlayer()).thenReturn(player);
+            when(interaction.getClickedBlock()).thenReturn(clicked);
+            when(interaction.getAction()).thenReturn(org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK);
+            when(interaction.getBlockFace()).thenReturn(org.bukkit.block.BlockFace.UP);
+            when(clicked.getRelative(org.bukkit.block.BlockFace.UP)).thenReturn(fire);
+            when(clicked.getLocation()).thenReturn(cart.location);
+            when(clicked.getType()).thenReturn(Material.STONE);
+            when(fire.getLocation()).thenReturn(cart.location);
+            when(player.getLocation()).thenReturn(cart.location);
+            when(blockUse.getOriginalEvent()).thenReturn(interaction);
+            when(itemUse.getOriginalEvent()).thenReturn(interaction);
+        }
+    }
+
     @Test void windChargeVariantsBypassMaceGuardExplosivesFlag() {
         assertTrue(ExplosiveControlListener.isWindCharge(EntityType.WIND_CHARGE));
         assertTrue(ExplosiveControlListener.isWindCharge(EntityType.BREEZE_WIND_CHARGE));
@@ -324,7 +453,7 @@ class ExplosiveControlListenerTest {
         when(runtime.rotations()).thenReturn(rotations);
         when(rotations.active()).thenReturn(active);
 
-        return new CartHarness(new ExplosiveControlListener(plugin, worldGuard, entity -> false),
+        return new CartHarness(org.mockito.Mockito.spy(new ExplosiveControlListener(plugin, worldGuard, entity -> false)),
                 worldGuard, runtime, module, location);
     }
 
