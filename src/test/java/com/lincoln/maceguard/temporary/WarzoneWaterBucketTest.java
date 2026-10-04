@@ -21,6 +21,47 @@ import java.util.Set;
 import static org.mockito.Mockito.*;
 
 class WarzoneWaterBucketTest {
+    @Test void initialRightClickPlacementGrantPrecedesBucketEvent() {
+        Fixture f = fixture();
+        var interaction = mock(org.bukkit.event.player.PlayerInteractEvent.class);
+        var item = mock(org.bukkit.inventory.ItemStack.class);
+        when(item.getType()).thenReturn(Material.WATER_BUCKET);
+        when(interaction.getItem()).thenReturn(item);
+        when(interaction.getAction()).thenReturn(org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK);
+        when(interaction.getPlayer()).thenReturn(f.player);
+        when(interaction.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DEFAULT);
+        when(interaction.getClickedBlock()).thenReturn(f.target);
+        when(f.place.getOriginalEvent()).thenReturn(interaction);
+        when(f.place.getEffectiveMaterial()).thenReturn(Material.WATER);
+        when(f.place.getBlocks()).thenReturn(List.of(f.target));
+        f.listener.onWorldGuardCobwebEscapePlace(f.place);
+        verify(f.place).setAllowed(true);
+        for (Material protectedMaterial : List.of(Material.TORCH, Material.RAIL, Material.STONE,
+                Material.OAK_SLAB, Material.LAVA)) {
+            clearInvocations(f.place);
+            when(f.target.getType()).thenReturn(protectedMaterial);
+            f.listener.onWorldGuardCobwebEscapePlace(f.place);
+            verify(f.place, never()).setAllowed(true);
+        }
+        when(f.target.getType()).thenReturn(Material.AIR);
+        when(interaction.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DENY);
+        f.listener.onWorldGuardCobwebEscapePlace(f.place);
+        verify(f.place, never()).setAllowed(true);
+        when(interaction.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DEFAULT);
+        when(f.warzone.appliesAt(f.target.getLocation())).thenReturn(false);
+        f.listener.onWorldGuardCobwebEscapePlace(f.place);
+        verify(f.place, never()).setAllowed(true);
+        when(f.warzone.appliesAt(f.target.getLocation())).thenReturn(true);
+        when(f.warzone.runtime().rotations().active()).thenReturn(active(false));
+        f.listener.onWorldGuardCobwebEscapePlace(f.place);
+        verify(f.place, never()).setAllowed(true);
+        when(f.warzone.runtime().rotations().active()).thenReturn(active(true));
+        when(f.policies.resolve(f.target.getLocation())).thenReturn(
+                new BlockPolicyResolver.Resolution("scope", "missing", null, true,
+                        "region", false, BlockPolicyResolver.Status.REFERENCED_POLICY_MISSING));
+        f.listener.onWorldGuardCobwebEscapePlace(f.place);
+        verify(f.place, never()).setAllowed(true);
+    }
     @Test void bucketPlacementDoesNotGrantDestructionOfMapBlocks() {
         for (Material material : List.of(Material.SHORT_GRASS, Material.TORCH,
                 Material.REDSTONE_WIRE, Material.RAIL, Material.WHEAT, Material.LAVA)) {

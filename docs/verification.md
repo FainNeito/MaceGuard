@@ -2,6 +2,15 @@
 
 ## Local evidence
 
+### Water/flint report follow-up, 2026-10-04
+
+- Production inspection remained read-only. Saved Warzone region flags include `water-flow: allow`, `build: deny`, `block-place: deny`, `interact: deny`, and `lighter: deny`; global `block-lighter` is false. The enabled COBWEBS/CARTS definitions and effective-world exclusions are present. Saved settings do not prove an individual player's action path.
+- Inspected WorldGuard's runtime source revision `f395a16`, matching production's reported 7.0.19 build. `EventAbstractionListener.handleBlockRightClick` emits a WATER placement delegate from `PlayerInteractEvent` before the bucket-empty event. The old exception covered only the latter. `onPlayerInteract` separately uses block/item results; the old flint gate rejected an item action whenever `isCancelled()` reported block-use DENY.
+- Prove: two new routing regressions failed against the previous source (36 focused tests, 2 failures, no errors). A preceding fixture compile error was corrected before that behavioral red run. After the implementation, the focused 36 tests passed.
+- Engine/architecture: added the initial water delegate grant, confined to active COBWEBS, one replaceable target, effective Warzone player/target scope, and no explicit policy reference. Flint/TNT-cart interaction checks now honor `useItemInHand() == DENY` rather than the deprecated aggregate cancellation result. Original Bukkit events are never uncancelled by these changes.
+- Refine: canonical Java 21 Maven-wrapper `clean verify` passed **604 tests, 0 failures/errors/skips**. Tests also cover protected map destinations, item-use denial, excluded destinations, inactive COBWEBS, and missing explicit policies. `git diff --check` passed. Local unmerged review JAR SHA-256: `764FFDC347DD1C7C53241B32B98BA3D8A43C7E8CF4AE9501FDF450ACFBEB8E7E`; descriptor remains 6.1.8.
+- This fixes reproduced source defects; the reported live actions still need acceptance at the affected coordinates after an authorized deployment of reviewed merged source. No production file, flag, runtime, or console command was changed.
+
 ### Cumulative PR preparation, 2026-10-04
 
 - Fetched authoritative `wsg138/MaceGuard` main: `e18093c612eb0c7b58c29c229ac83c751fc97309`. The ongoing isolated branch already contains that base; existing work was preserved. PR #44 remains open and overlaps the older water/fire commits included in this cumulative branch.

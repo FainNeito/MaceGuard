@@ -17,4 +17,7 @@ This SPEAR slice covers the cumulative Warzone changes and the PR authorized on 
 
 ## Boundaries
 
+- **MG-WZ-10:** While COBWEBS is active, a water-bucket right-click shall pass the initial WorldGuard placement delegate as well as the bucket delegates, only for replaceable destinations inside the effective Warzone with no explicit policy veto. Lava, waterlogging/map modifications, excluded regions, and item-use denials remain protected.
+- **MG-WZ-11:** While CARTS is active, flint-and-steel item use shall honor Bukkit's separate item-use result. A predicted block-use denial alone shall not reject an otherwise permitted item action; an item-use denial shall never be reopened.
+
 Vanilla clients accept only preset boss-bar fill colors; `#EE4B00` is the title color. CombatLogX Cheat Prevention must be configured separately to stop globally blocking Elytra, Riptide, and teleports. A local build does not establish live Paper/Leaf, WorldGuard, CombatLogX, or client behavior.

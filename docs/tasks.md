@@ -26,3 +26,5 @@ The implementation predates this SPEAR record. Existing tests are not claimed as
 | MG-PR-03 | arch | Inspect production runtime and cumulative PR overlap with #44 | Production test.8 enabled; #44 remains open |
 
 Local EARS/state helpers are absent. Requirements and these task/evidence records provide manual traceability.
+
+| MG-WZ-10/11 | spec/prove/engine/arch/refine | Fix initial WorldGuard water right-click routing and separate flint item-use result | Two regressions reproduced; focused 36 and full 604 tests pass; PR CI and live acceptance pending |

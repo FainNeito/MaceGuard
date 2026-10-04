@@ -34,8 +34,22 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.clearInvocations;
 
 class ExplosiveControlListenerTest {
+    @Test void predictedBlockUseDenialDoesNotDenyFlintItemUse() {
+        FlintHarness f = new FlintHarness();
+        when(f.interaction.isCancelled()).thenReturn(true);
+        when(f.interaction.useInteractedBlock()).thenReturn(org.bukkit.event.Event.Result.DENY);
+        when(f.interaction.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DEFAULT);
+        f.cart.listener.onWorldGuardCartUseItem(f.itemUse);
+        verify(f.itemUse).setAllowed(true);
+        verify(f.interaction, never()).setCancelled(false);
+        clearInvocations(f.itemUse);
+        when(f.interaction.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DENY);
+        f.cart.listener.onWorldGuardCartUseItem(f.itemUse);
+        verify(f.itemUse, never()).setAllowed(true);
+    }
     @Test void cartsGrantFlintBlockAndItemUseEvenWhenLighterAlreadyAllowed() {
         FlintHarness f = new FlintHarness();
         when(f.cart.worldGuard.lighterAllowed(f.cart.location, f.player)).thenReturn(true);
@@ -77,8 +91,10 @@ class ExplosiveControlListenerTest {
     @Test void cancelledAndLeftClickFlintInteractionsAreNotReopened() {
         FlintHarness f = new FlintHarness();
         when(f.interaction.isCancelled()).thenReturn(true);
+        when(f.interaction.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DENY);
         f.cart.listener.onWorldGuardCartUseBlock(f.blockUse);
         when(f.interaction.isCancelled()).thenReturn(false);
+        when(f.interaction.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DEFAULT);
         when(f.interaction.getAction()).thenReturn(org.bukkit.event.block.Action.LEFT_CLICK_BLOCK);
         f.cart.listener.onWorldGuardCartUseItem(f.itemUse);
         verify(f.blockUse, never()).setAllowed(true);

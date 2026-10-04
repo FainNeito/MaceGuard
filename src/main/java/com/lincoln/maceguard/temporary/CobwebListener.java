@@ -99,6 +99,19 @@ public final class CobwebListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onWorldGuardCobwebEscapePlace(
             com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent event) {
+        // WorldGuard checks right-click placement before vanilla emits the bucket event.
+        if (event.getOriginalEvent() instanceof org.bukkit.event.player.PlayerInteractEvent original
+                && original.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK
+                && original.useItemInHand() != org.bukkit.event.Event.Result.DENY
+                && original.getItem() != null
+                && original.getItem().getType() == Material.WATER_BUCKET
+                && event.getEffectiveMaterial() == Material.WATER
+                && event.getBlocks().size() == 1) {
+            Block target = event.getBlocks().getFirst();
+            if (WarzoneWaterProtection.canReplace(target.getType())
+                    && warzoneWaterAllowed(original.getPlayer(), target)) event.setAllowed(true);
+            return;
+        }
         if (event.getOriginalEvent() instanceof PlayerBucketEmptyEvent original
                 && waterEscapeAllowed(original)) event.setAllowed(true);
     }

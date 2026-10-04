@@ -303,7 +303,9 @@ public final class ExplosiveControlListener implements Listener {
     private void preAllowWorldGuardCartInteraction(
             com.sk89q.worldguard.bukkit.event.DelegateEvent delegate,
             PlayerInteractEvent original) {
-        if (original.isCancelled()) return;
+        // Bukkit predicts block and item use separately. A noninteractive support block may
+        // deny block use while still accepting the lighter item; never reopen item-use DENY.
+        if (original.useItemInHand() == org.bukkit.event.Event.Result.DENY) return;
         ItemStack item = original.getItem();
         Block clicked = original.getClickedBlock();
         if (item == null || clicked == null) return;
@@ -321,7 +323,7 @@ public final class ExplosiveControlListener implements Listener {
     }
 
     private boolean cartFlintInteraction(PlayerInteractEvent original) {
-        if (original.isCancelled()
+        if (original.useItemInHand() == org.bukkit.event.Event.Result.DENY
                 || original.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK
                 || original.getItem() == null
                 || original.getItem().getType() != Material.FLINT_AND_STEEL
