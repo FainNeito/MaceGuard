@@ -117,6 +117,25 @@ public final class ItemRestrictionListener implements Listener {
         messages.denial(event.getPlayer(), decision, material);
     }
 
+    // Air interactions may already have useInteractedBlock=DENY from vanilla prediction.
+    // Do not skip those events: deny only the item use, before the client charges Riptide.
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onRiptideCharge(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_AIR
+                && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        ItemStack item = event.getItem();
+        if (!isRiptideTrident(item)
+                || event.useItemInHand() == Event.Result.DENY
+                || !riptideBlocked(event.getPlayer())) return;
+        event.setUseItemInHand(Event.Result.DENY);
+        messages.riptideUnavailable(event.getPlayer());
+    }
+
+    boolean isRiptideTrident(ItemStack item) {
+        return item != null && item.getType() == Material.TRIDENT
+                && item.containsEnchantment(Enchantment.RIPTIDE);
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerLaunch(PlayerLaunchProjectileEvent event) {
         Material material = event.getItemStack().getType();
@@ -397,10 +416,14 @@ public final class ItemRestrictionListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onRiptide(PlayerRiptideEvent event) {
         Player player = event.getPlayer();
-        if (bypass(player) || excluded(player)
-                || !combatScopes.riptideBlocked(player, region.contains(player.getLocation()))) return;
+        if (!riptideBlocked(player)) return;
         event.setCancelled(true);
-        messages.send(player, "<red>Riptide is disabled while you are in Warzone combat.");
+        messages.riptideUnavailable(player);
+    }
+
+    private boolean riptideBlocked(Player player) {
+        return !bypass(player) && !excluded(player)
+                && combatScopes.riptideBlocked(player, region.contains(player.getLocation()));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

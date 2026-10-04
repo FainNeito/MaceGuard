@@ -15,6 +15,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class CombatScopeServiceTest {
+    @Test void blockedRegionEntryAppliesOnlyToLatchedPlayersAndHonorsBypass() {
+        when(worldGuard.enteringRegion(outside, inside, List.of("spawn", "market")))
+                .thenReturn("spawn");
+        assertNull(scopes.blockedRegionOnEntry(player, outside, inside));
+        assertTrue(scopes.acquireIfEligible(player, inside));
+        assertEquals("spawn", scopes.blockedRegionOnEntry(player, outside, inside));
+        when(player.hasPermission("warzonerotator.bypass")).thenReturn(true);
+        assertNull(scopes.blockedRegionOnEntry(player, outside, inside));
+    }
+
+    @Test void movementWithinRegionAndExpiredTagDoNotBlockEntry() {
+        assertTrue(scopes.acquireIfEligible(player, inside));
+        assertNull(scopes.blockedRegionOnEntry(player, inside, inside));
+        when(combat.inCombat(player)).thenReturn(false);
+        assertNull(scopes.blockedRegionOnEntry(player, outside, inside));
+        verify(worldGuard, never()).enteringRegion(outside, inside, List.of("spawn", "market"));
+    }
     private CombatLogXGateway combat;
     private WorldGuardQueryService worldGuard;
     private CombatScopeService scopes;

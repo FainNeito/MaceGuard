@@ -53,6 +53,8 @@ untag: false
 
 MaceGuard now blocks `/tpa`, `/home`, `/spawn`, other plugin teleports, and portals only while Warzone combat restrictions apply. Ender Pearl teleports remain available for CombatLogX retagging and MaceGuard's aged-pearl decision. Validate server-specific plugins and portal event order in staging.
 
+NotBounties claims are awarded on a valid player kill. On the installed 1.22.37 configuration, `world-filter` excludes only `SafeWorld`, `claim-order` is `REGULAR`, and `same-ip-claim` is false. Keep the effective WorldGuard `claim-bounties` flag allowed in the Warzone (set explicitly with `rg flag -w world warzone claim-bounties allow` after checking the target world and region). CombatLogX's command block list does not include `/bounty` or `/notbounties`. An in-game claim and payout test with two eligible players remains required; configuration review alone does not prove reward delivery.
+
 
 ### Direct CombatLogX API boundary
 

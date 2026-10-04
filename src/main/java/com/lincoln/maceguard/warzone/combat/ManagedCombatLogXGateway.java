@@ -50,6 +50,9 @@ final class ManagedCombatLogXGateway implements CombatLogXGateway, Listener {
     @Override public Duration remaining(Player player) {
         return delegate.available() ? delegate.remaining(player) : Duration.ZERO;
     }
+    @Override public boolean retag(Player player, Player enemy, boolean attacker) {
+        return delegate.available() && delegate.retag(player, enemy, attacker);
+    }
     @Override public boolean suppressBossBar(Player player) {
         return delegate.available() && delegate.suppressBossBar(player);
     }

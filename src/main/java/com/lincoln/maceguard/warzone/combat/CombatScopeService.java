@@ -86,6 +86,18 @@ public final class CombatScopeService {
         return tag.preventTeleportation() && restrictionsApply(player, insideWarzone);
     }
 
+    public String blockedRegionOnEntry(Player player, Location from, Location to) {
+        if (player.hasPermission("warzonerotator.bypass") || !warzoneTagged(player)
+                || tag.blockedRegionIds().isEmpty() || worldGuard == null)
+            return null;
+        try {
+            return worldGuard.enteringRegion(from, to, tag.blockedRegionIds());
+        } catch (IllegalArgumentException | IllegalStateException | LinkageError unavailable) {
+            reportCombatQueryFailure(unavailable);
+            return null;
+        }
+    }
+
     public boolean carryoverEligible(UUID playerId) {
         Player player = org.bukkit.Bukkit.getPlayer(playerId);
         return player != null && carryoverEligible(player);

@@ -29,6 +29,93 @@ import static org.mockito.Mockito.when;
 class BlockPolicyWorldGuardGrantTest {
     private static final String WARZONE_SCOPE = "warzone";
 
+    @Test void flowingWaterCannotDestroyAnyNonCobwebDecoration() {
+        for (Material material : List.of(Material.SHORT_GRASS, Material.DANDELION,
+                Material.TORCH, Material.REDSTONE_WIRE, Material.RAIL, Material.WHEAT,
+                Material.SNOW, Material.VINE, Material.FIRE, Material.LAVA)) {
+            var flow = new CobwebFlow(true, true, material);
+            flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+            verify(flow.delegate, never()).setAllowed(true);
+            flow.listener.onFlow(flow.event);
+            verify(flow.event).setCancelled(true);
+        }
+    }
+
+    @Test void disabledCobwebsStillProtectMapBlocksFromWater() {
+        var flow = new CobwebFlow(false, true, Material.TORCH);
+        flow.listener.onFlow(flow.event);
+        verify(flow.event).setCancelled(true);
+    }
+
+    @Test void explicitFluidPolicyCannotOverrideProtectedDecoration() {
+        var flow = new CobwebFlow(true, true, Material.REDSTONE_WIRE);
+        when(flow.resolver.resolve(flow.source.getLocation())).thenReturn(resolved(WARZONE_SCOPE));
+        when(flow.resolver.resolve(flow.target.getLocation())).thenReturn(resolved(WARZONE_SCOPE));
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate, never()).setAllowed(true);
+        flow.listener.onFlow(flow.event);
+        verify(flow.event).setCancelled(true);
+    }
+
+    @Test void waterContactCannotTransformLavaOrConcreteInWarzone() {
+        for (Material[] change : List.of(new Material[]{Material.LAVA, Material.OBSIDIAN},
+                new Material[]{Material.LAVA, Material.COBBLESTONE},
+                new Material[]{Material.WATER, Material.STONE},
+                new Material[]{Material.WHITE_CONCRETE_POWDER, Material.WHITE_CONCRETE})) {
+            var flow = new CobwebFlow(true, true, change[0]);
+            var state = mock(org.bukkit.block.BlockState.class);
+            when(state.getType()).thenReturn(change[1]);
+            var form = mock(org.bukkit.event.block.BlockFormEvent.class);
+            when(form.getBlock()).thenReturn(flow.target);
+            when(form.getNewState()).thenReturn(state);
+            flow.listener.onWaterBlockForm(form);
+            verify(form).setCancelled(true);
+        }
+    }
+
+    @Test void unrelatedFormationAndOutsideWarzoneRemainUnchanged() {
+        var inside = new CobwebFlow(true, true, Material.AIR);
+        var state = mock(org.bukkit.block.BlockState.class);
+        when(state.getType()).thenReturn(Material.SNOW);
+        var form = mock(org.bukkit.event.block.BlockFormEvent.class);
+        when(form.getBlock()).thenReturn(inside.target);
+        when(form.getNewState()).thenReturn(state);
+        inside.listener.onWaterBlockForm(form);
+        verify(form, never()).setCancelled(true);
+
+        var outside = new CobwebFlow(true, false, Material.LAVA);
+        when(form.getBlock()).thenReturn(outside.target);
+        when(state.getType()).thenReturn(Material.OBSIDIAN);
+        outside.listener.onWaterBlockForm(form);
+        verify(form, never()).setCancelled(true);
+    }
+
+    @Test void bucketCannotDirectlyReplaceDecorationEvenWithPolicyBypass() {
+        var flow = new CobwebFlow(true, true, Material.DANDELION);
+        PlayerBucketEmptyEvent bucket = mock(PlayerBucketEmptyEvent.class);
+        Player player = mock(Player.class);
+        when(player.hasPermission("maceguard.block-policy.bypass")).thenReturn(true);
+        when(bucket.getPlayer()).thenReturn(player);
+        when(bucket.getBucket()).thenReturn(Material.WATER_BUCKET);
+        when(bucket.getBlock()).thenReturn(flow.target);
+        when(flow.delegate.getOriginalEvent()).thenReturn(bucket);
+        flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+        verify(flow.delegate, never()).setAllowed(true);
+        flow.listener.onBucketEmpty(bucket);
+        verify(bucket).setCancelled(true);
+    }
+
+    @Test void waterStillFlowsIntoEmptySpaceWaterAndCobwebs() {
+        for (Material material : List.of(Material.AIR, Material.CAVE_AIR,
+                Material.VOID_AIR, Material.WATER, Material.COBWEB)) {
+            var flow = new CobwebFlow(true, true, material);
+            flow.listener.onWorldGuardPolicyPlace(flow.delegate);
+            verify(flow.delegate).setAllowed(true);
+            flow.listener.onFlow(flow.event);
+            verify(flow.event, never()).setCancelled(true);
+        }
+    }
+
     @Test void cobwebWaterWithoutNamedPolicyGainsFlowGrant() {
         var flow = new CobwebFlow(true, true, Material.COBWEB);
         flow.listener.onWorldGuardPolicyPlace(flow.delegate);

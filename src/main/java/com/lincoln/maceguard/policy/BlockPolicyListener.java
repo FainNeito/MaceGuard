@@ -19,6 +19,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDispenseEvent;
 import org.bukkit.event.block.BlockFadeEvent;
+import org.bukkit.event.block.BlockFormEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
@@ -77,6 +78,7 @@ public final class BlockPolicyListener implements Listener {
             if (original.isCancelled()) return;
             Block target = original.getBlock();
             Material fluid = fluid(original.getBucket());
+            if (fluid == Material.WATER && protectedWaterDestination(target)) return;
             BlockPolicyResolver.Resolution resolution = resolve(target.getLocation());
             if (resolution.referenced() && bucketEmptyAllowed(resolution, fluid))
                 event.setAllowed(true);
@@ -86,6 +88,8 @@ public final class BlockPolicyListener implements Listener {
                 || original.isCancelled()) return;
         Block sourceBlock = original.getBlock();
         Block targetBlock = original.getToBlock();
+        if (sourceBlock.getType() == Material.WATER && protectedWaterDestination(targetBlock))
+            return;
         BlockPolicyResolver.Resolution source = resolve(sourceBlock.getLocation());
         BlockPolicyResolver.Resolution target = resolve(targetBlock.getLocation());
         boolean createsInfiniteWater = sourceBlock.getType() == Material.WATER
@@ -161,9 +165,13 @@ public final class BlockPolicyListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
-        if (event.getPlayer().hasPermission(BYPASS_PERMISSION)) return;
         Block target = event.getBlock();
         Material fluid = fluid(event.getBucket());
+        if (fluid == Material.WATER && protectedWaterDestination(target)) {
+            event.setCancelled(true);
+            return;
+        }
+        if (event.getPlayer().hasPermission(BYPASS_PERMISSION)) return;
         if (bucketEmptyAllowed(resolve(target.getLocation()), fluid)) return;
         event.setCancelled(true);
         if (warzone != null) warzone.sendBucketEmptyDenied(event.getPlayer(), fluid);
@@ -180,6 +188,11 @@ public final class BlockPolicyListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onFlow(BlockFromToEvent event) {
+        if (event.getBlock().getType() == Material.WATER
+                && protectedWaterDestination(event.getToBlock())) {
+            event.setCancelled(true);
+            return;
+        }
         // The source's water-flow flag does not protect destinations such as the nested spawn.
         if (warzone != null && event.getBlock().getType() == Material.WATER
                 && warzone.appliesAt(event.getBlock().getLocation())
@@ -194,6 +207,19 @@ public final class BlockPolicyListener implements Listener {
         if (flowDenied(source, target, createsInfiniteWater)
                 && !warzoneWaterMayCrossPolicyBoundary(event.getBlock(), event.getToBlock(),
                 source, target, createsInfiniteWater)) event.setCancelled(true);
+    }
+
+    private boolean protectedWaterDestination(Block target) {
+        return warzone != null && warzone.appliesAt(target.getLocation())
+                && !WarzoneWaterProtection.canReplace(target.getType());
+    }
+
+    // Neighbor contact can transform lava/concrete without flowing into the block.
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onWaterBlockForm(BlockFormEvent event) {
+        if (warzone != null && warzone.appliesAt(event.getBlock().getLocation())
+                && WarzoneWaterProtection.waterTransforms(event.getBlock().getType(),
+                event.getNewState().getType())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

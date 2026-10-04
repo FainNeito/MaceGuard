@@ -33,6 +33,33 @@ import static org.mockito.Mockito.withSettings;
 import static org.mockito.Mockito.when;
 
 class DirectCombatLogXGatewayTest {
+    @Test void retagDelegatesPlayerReasonsAndHonorsCombatBypass() {
+        JavaPlugin owner = mock(JavaPlugin.class);
+        Plugin candidate = combatLogXPlugin();
+        FakeCombatManager manager = mock(FakeCombatManager.class);
+        when(((FakeCombatLogXApi) candidate).getCombatManager()).thenReturn(manager);
+        Player player = mock(Player.class);
+        Player enemy = mock(Player.class);
+        when(manager.isInCombat(player)).thenReturn(true);
+        DirectCombatLogXGateway gateway = connect(owner, candidate);
+
+        gateway.retag(player, enemy, true);
+        gateway.retag(player, enemy, false);
+        gateway.retag(player, null, false);
+        verify(manager).tag(player, enemy,
+                com.github.sirblobman.combatlogx.api.object.TagType.PLAYER,
+                com.github.sirblobman.combatlogx.api.object.TagReason.ATTACKER);
+        verify(manager).tag(player, enemy,
+                com.github.sirblobman.combatlogx.api.object.TagType.PLAYER,
+                com.github.sirblobman.combatlogx.api.object.TagReason.ATTACKED);
+        verify(manager).tag(player, null,
+                com.github.sirblobman.combatlogx.api.object.TagType.PLAYER,
+                com.github.sirblobman.combatlogx.api.object.TagReason.UNKNOWN);
+        org.mockito.Mockito.clearInvocations(manager);
+        when(manager.canBypass(player)).thenReturn(true);
+        assertFalse(gateway.retag(player, enemy, true));
+        verify(manager, never()).tag(any(), any(), any(), any());
+    }
     @Test void suppressesOnlyThePlayersCombatLogXBarAndRestoresOriginalPreference() {
         JavaPlugin owner = mock(JavaPlugin.class);
         Plugin candidate = mock(Plugin.class, withSettings().extraInterfaces(FakeBossBarApi.class));
@@ -272,6 +299,9 @@ class DirectCombatLogXGatewayTest {
     }
 
     public interface FakeCombatManager {
+        boolean tag(Player player, org.bukkit.entity.Entity enemy,
+                    com.github.sirblobman.combatlogx.api.object.TagType type,
+                    com.github.sirblobman.combatlogx.api.object.TagReason reason);
         boolean isInCombat(Player player);
         boolean canBypass(Player player);
         int getMaxTimerSeconds(Player player);

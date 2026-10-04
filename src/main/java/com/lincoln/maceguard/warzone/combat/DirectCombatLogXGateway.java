@@ -2,6 +2,7 @@ package com.lincoln.maceguard.warzone.combat;
 
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Entity;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -36,6 +37,11 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
     private final Method maximumSecondsMethod;
     private final Method tagInformationMethod;
     private final Method millisLeftMethod;
+    private final Method retagMethod;
+    private final Object playerTagType;
+    private final Object attackerReason;
+    private final Object attackedReason;
+    private final Object unknownReason;
     private final Class<? extends Event> tagEventClass;
     private final Class<? extends Event> reTagEventClass;
     private final Class<? extends Event> untagEventClass;
@@ -49,7 +55,9 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
     private DirectCombatLogXGateway(JavaPlugin owner, Plugin combatLogX, Object combatManager,
                                     Method isInCombatMethod, Method canBypassMethod,
                                     Method maximumSecondsMethod, Method tagInformationMethod,
-                                    Method millisLeftMethod,
+                                    Method millisLeftMethod, Method retagMethod,
+                                    Object playerTagType, Object attackerReason, Object attackedReason,
+                                    Object unknownReason,
                                     Class<? extends Event> tagEventClass,
                                     Class<? extends Event> reTagEventClass,
                                     Class<? extends Event> untagEventClass,
@@ -63,6 +71,11 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
         this.maximumSecondsMethod = maximumSecondsMethod;
         this.tagInformationMethod = tagInformationMethod;
         this.millisLeftMethod = millisLeftMethod;
+        this.retagMethod = retagMethod;
+        this.playerTagType = playerTagType;
+        this.attackerReason = attackerReason;
+        this.attackedReason = attackedReason;
+        this.unknownReason = unknownReason;
         this.tagEventClass = tagEventClass;
         this.reTagEventClass = reTagEventClass;
         this.untagEventClass = untagEventClass;
@@ -91,6 +104,13 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
             Method millisLeft = tagInformation.getReturnType().getMethod("getMillisLeftCombined");
 
             ClassLoader loader = candidate.getClass().getClassLoader();
+            Class<?> tagType = Class.forName("com.github.sirblobman.combatlogx.api.object.TagType", false, loader);
+            Class<?> tagReason = Class.forName("com.github.sirblobman.combatlogx.api.object.TagReason", false, loader);
+            Method retag = managerType.getMethod("tag", Player.class, Entity.class, tagType, tagReason);
+            Object playerType = enumConstant(tagType, "PLAYER");
+            Object attacker = enumConstant(tagReason, "ATTACKER");
+            Object attacked = enumConstant(tagReason, "ATTACKED");
+            Object unknown = enumConstant(tagReason, "UNKNOWN");
             Class<? extends Event> tagClass = eventClass(loader, tagEventName);
             Class<? extends Event> reTagClass = eventClass(loader, reTagEventName);
             Class<? extends Event> untagClass = eventClass(loader, untagEventName);
@@ -99,7 +119,8 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
             Method untagPlayer = playerMethod(untagClass);
 
             return new DirectCombatLogXGateway(owner, candidate, manager, isInCombat, canBypass,
-                    maximumSeconds, tagInformation, millisLeft, tagClass, reTagClass,
+                    maximumSeconds, tagInformation, millisLeft, retag, playerType, attacker,
+                    attacked, unknown, tagClass, reTagClass,
                     untagClass, tagPlayer, reTagPlayer, untagPlayer);
         } catch (ReflectiveOperationException incompatible) {
             throw new IllegalStateException("CombatLogX public API is incompatible: "
@@ -110,6 +131,10 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
     private static Class<? extends Event> eventClass(ClassLoader loader, String name)
             throws ClassNotFoundException {
         return Class.forName(name, false, loader).asSubclass(Event.class);
+    }
+
+    private static Object enumConstant(Class<?> type, String name) throws ReflectiveOperationException {
+        return type.getField(name).get(null);
     }
 
     private static Method playerMethod(Class<? extends Event> eventClass) throws NoSuchMethodException {
@@ -131,6 +156,13 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
     }
     @Override public int maximumSeconds(Player player) {
         return ((Number) invoke(maximumSecondsMethod, requireCombatManager(), player)).intValue();
+    }
+
+    @Override public boolean retag(Player player, Player enemy, boolean attacker) {
+        if (!inCombat(player) || bypass(player)) return false;
+        return (boolean) invoke(retagMethod, requireCombatManager(), player, enemy,
+                playerTagType, enemy == null ? unknownReason
+                        : attacker ? attackerReason : attackedReason);
     }
 
     @Override

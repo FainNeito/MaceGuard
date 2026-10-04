@@ -9,6 +9,8 @@ import com.lincoln.maceguard.warzone.combat.CombatScopeService;
 import com.lincoln.maceguard.warzone.combat.WarzoneCombatBar;
 import com.lincoln.maceguard.warzone.combat.CombatLogXGateway;
 import com.lincoln.maceguard.warzone.combat.CombatLogXGatewayFactory;
+import com.lincoln.maceguard.warzone.combat.WarzoneRetagListener;
+import com.lincoln.maceguard.warzone.combat.CombatVaultCommandListener;
 import com.lincoln.maceguard.warzone.combat.StasisPearlTracker;
 import com.lincoln.maceguard.warzone.config.WarzoneConfig;
 import com.lincoln.maceguard.warzone.config.WarzoneMessages;
@@ -61,6 +63,8 @@ public final class WarzoneRuntime {
     private final VisualCooldownService visualCooldowns;
     private final RestrictionService restrictions;
     private final CombatScopeService combatScopes;
+    private final WarzoneRetagListener combatRetagListener;
+    private final CombatVaultCommandListener combatVaultCommands;
     private final WarzoneCombatBar combatBar;
     private final CombatIntegrationListener combatIntegration;
     private final CombatPositionListener combatPositionListener;
@@ -125,10 +129,14 @@ public final class WarzoneRuntime {
         this.combatLogX = CombatLogXGatewayFactory.discover(plugin);
         this.combatScopes = new CombatScopeService(combatLogX, queries,
                 config.combat().warzoneTag());
+        this.combatRetagListener = new WarzoneRetagListener(plugin, combatScopes);
+        this.combatVaultCommands = new CombatVaultCommandListener(combatLogX, messages,
+                plugin.getServer(), plugin.getLogger()::warning);
         this.combatBar = new WarzoneCombatBar(combatScopes, config.combat().warzoneTag());
         StasisPearlTracker pearls = new StasisPearlTracker();
         this.combatIntegration = new CombatIntegrationListener(combatScopes, pearls, combatBar);
-        this.combatPositionListener = new CombatPositionListener(combatScopes, combatIntegration);
+        this.combatPositionListener = new CombatPositionListener(combatScopes, combatIntegration,
+                region);
         this.stasisPearlListener = new StasisPearlListener(combatScopes, pearls, messages,
                 config.combat().stasis().minimumAge());
         this.restrictions = new RestrictionService(rotations::active, cooldowns,
@@ -162,9 +170,12 @@ public final class WarzoneRuntime {
             if (pendingCobwebRecoveryActivated && pendingWarzoneCobwebClear
                     && region.fullyResolved()) clearTrackedCobwebs();
         }, 20L, 20L);
+        // Ordinary CombatLogX combat must protect vaults even if Warzone gameplay is disabled.
+        plugin.getServer().getPluginManager().registerEvents(combatVaultCommands, plugin);
         if (!config.enabled()) return;
         plugin.getServer().getPluginManager().registerEvents(restrictionListener, plugin);
         plugin.getServer().getPluginManager().registerEvents(combatPositionListener, plugin);
+        plugin.getServer().getPluginManager().registerEvents(combatRetagListener, plugin);
         plugin.getServer().getPluginManager().registerEvents(combatBar, plugin);
         plugin.getServer().getPluginManager().registerEvents(stasisPearlListener, plugin);
         combatLogX.register(combatIntegration);
@@ -196,6 +207,8 @@ public final class WarzoneRuntime {
         regionRefreshTask = null;
         HandlerList.unregisterAll(restrictionListener);
         HandlerList.unregisterAll(combatPositionListener);
+        HandlerList.unregisterAll(combatRetagListener);
+        HandlerList.unregisterAll(combatVaultCommands);
         HandlerList.unregisterAll(combatBar);
         HandlerList.unregisterAll(stasisPearlListener);
         combatBar.clear();

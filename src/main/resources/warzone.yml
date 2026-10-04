@@ -62,6 +62,9 @@ combat:
     carry-restrictions-outside: true
     prevent-riptide: true
     prevent-teleportation: true
+    blocked-region-ids:
+      - spawn
+      - market
     boss-bar:
       enabled: true
       title: "Warzone Combat"

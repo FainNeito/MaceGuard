@@ -89,7 +89,7 @@ public final class WarzoneConfigLoader {
         Map<String, Object> tagRaw = map(combatRaw.getOrDefault("warzone-tag", Map.of()),
                 "combat.warzone-tag", errors);
         keys(tagRaw, "combat.warzone-tag", Set.of("enabled", "carry-restrictions-outside",
-                "prevent-riptide", "prevent-teleportation", "boss-bar"), errors);
+                "prevent-riptide", "prevent-teleportation", "blocked-region-ids", "boss-bar"), errors);
         Map<String, Object> barRaw = map(tagRaw.getOrDefault("boss-bar", Map.of()),
                 "combat.warzone-tag.boss-bar", errors);
         keys(barRaw, "combat.warzone-tag.boss-bar", Set.of("enabled", "title",
@@ -116,7 +116,9 @@ public final class WarzoneConfigLoader {
                 bool(tagRaw.getOrDefault("prevent-riptide", Boolean.TRUE),
                         "combat.warzone-tag.prevent-riptide", errors, true),
                 bool(tagRaw.getOrDefault("prevent-teleportation", Boolean.TRUE),
-                        "combat.warzone-tag.prevent-teleportation", errors, true));
+                        "combat.warzone-tag.prevent-teleportation", errors, true),
+                idList(tagRaw.getOrDefault("blocked-region-ids", List.of("spawn", "market")),
+                        "combat.warzone-tag.blocked-region-ids", errors));
         WarzoneConfig.Combat combat = new WarzoneConfig.Combat(
                 new WarzoneConfig.Stasis(stasisMinimumAge), tag);
 
