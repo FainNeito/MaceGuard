@@ -2,6 +2,15 @@
 
 ## Local evidence
 
+### Lunge combat retag, 2026-10-05
+
+- Spec: MG-WZ-12 refreshes existing combat on permitted eligible Lunge use, with Warzone-only tagging inside and ordinary CombatLogX tagging outside. Source inspection showed the accepted Jab path previously started only its item cooldown and never requested a combat refresh.
+- Prove: newly added service regressions initially failed test compilation because the accepted-Lunge entry point and runtime-close fence did not exist. This is missing-interface evidence, not a historical behavioral red run. After implementation, the initial 15 focused tests passed; the final suite adds bypass, duplicate timer, and unready-Jab cases.
+- Engine/architecture: reuse existing 1.21.11 Jab recognition and validated CombatLogX retag adapter. No new runtime API signatures or configuration keys. Deferred work checks connection, tag, bypass and runtime lifetime. No Warzone latch is created by the retag service.
+- Refine: canonical Java 21 Maven-wrapper `clean verify` passes 613 tests with zero failures/errors/skips. No project-local EARS/state helpers exist; manual requirements/task/evidence records are maintained.
+- Current authoritative main `38e4255cf1940c2397da5a4e2cecc6c56498c8b4` was fetched, inspected, and safely merged into the ongoing candidate. GitHub reports #45 closed and #46 as its canonical continuation at the same former head; delivery follows #46. Existing cumulative Codacy findings remain release blockers.
+- Production was not changed. Acceptance still requires real Lunge uses inside with enabled/disabled/cooldown modifiers and outside with ordinary/carried/absent combat, verifying CombatLogX duration, bar continuity, bypass and reload behavior on the deployed server.
+
 ### Water/flint report follow-up, 2026-10-04
 
 - Production inspection remained read-only. Saved Warzone region flags include `water-flow: allow`, `build: deny`, `block-place: deny`, `interact: deny`, and `lighter: deny`; global `block-lighter` is false. The enabled COBWEBS/CARTS definitions and effective-world exclusions are present. Saved settings do not prove an individual player's action path.

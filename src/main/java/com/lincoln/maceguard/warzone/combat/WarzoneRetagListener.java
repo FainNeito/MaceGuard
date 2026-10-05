@@ -12,16 +12,31 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.Duration;
 
-/** Keeps a Warzone combat latch on CombatLogX's timer after PvP and pearl use. */
+/** Refreshes existing CombatLogX timers for accepted combat actions. */
 public final class WarzoneRetagListener implements Listener {
     private static final long ALREADY_REFRESHED_MARGIN_MILLIS = 150L;
 
     private final JavaPlugin plugin;
     private final CombatScopeService scopes;
+    private boolean closed;
 
     public WarzoneRetagListener(JavaPlugin plugin, CombatScopeService scopes) {
         this.plugin = plugin;
         this.scopes = scopes;
+    }
+
+    /** Called only after the Lunge Jab eligibility and restriction checks pass. */
+    public void onAcceptedLunge(Player player, boolean insideWarzone) {
+        if (closed || !eligible(player, insideWarzone)) return;
+        plugin.getServer().getScheduler().runTask(plugin,
+                () -> refresh(player, null, false, insideWarzone));
+    }
+
+    public void close() { closed = true; }
+
+    private boolean eligible(Player player, boolean warzoneOnly) {
+        return player.isOnline() && !player.hasPermission("warzonerotator.bypass")
+                && (warzoneOnly ? scopes.warzoneTagged(player) : scopes.combatBound(player));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -54,7 +69,11 @@ public final class WarzoneRetagListener implements Listener {
     }
 
     private void refresh(Player player, Player enemy, boolean attacker) {
-        if (!player.isOnline() || !scopes.warzoneTagged(player)) return;
+        refresh(player, enemy, attacker, true);
+    }
+
+    private void refresh(Player player, Player enemy, boolean attacker, boolean warzoneOnly) {
+        if (closed || !eligible(player, warzoneOnly)) return;
         CombatLogXGateway combat = scopes.combat();
         Duration remaining = combat.remaining(player);
         long maximumMillis = Math.max(0L, combat.maximumSeconds(player)) * 1000L;

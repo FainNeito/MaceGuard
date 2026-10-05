@@ -58,6 +58,59 @@ class WarzoneRetagListenerTest {
         return event;
     }
 
+    @Test void acceptedLungeInsideRefreshesOnlyWarzoneCombat() {
+        listener.onAcceptedLunge(attacker, true);
+        pending.forEach(Runnable::run);
+        verify(combat).retag(attacker, null, false);
+        pending.clear();
+        when(scopes.warzoneTagged(attacker)).thenReturn(false);
+        listener.onAcceptedLunge(attacker, true);
+        assertTrue(pending.isEmpty());
+    }
+
+    @Test void acceptedLungeOutsideRefreshesOrdinaryCombatWithoutCreatingWarzoneTag() {
+        when(scopes.warzoneTagged(attacker)).thenReturn(false);
+        when(scopes.combatBound(attacker)).thenReturn(true);
+        listener.onAcceptedLunge(attacker, false);
+        pending.forEach(Runnable::run);
+        verify(combat).retag(attacker, null, false);
+        verify(scopes, never()).warzoneTagged(attacker);
+    }
+
+    @Test void outsideLungeDoesNotStartCombatOrRefreshAnExpiredTag() {
+        listener.onAcceptedLunge(attacker, false);
+        assertTrue(pending.isEmpty());
+        when(scopes.combatBound(attacker)).thenReturn(true);
+        listener.onAcceptedLunge(attacker, false);
+        when(scopes.combatBound(attacker)).thenReturn(false);
+        pending.forEach(Runnable::run);
+        verify(combat, never()).retag(any(), any(), anyBoolean());
+    }
+
+    @Test void acceptedLungeIsFencedAfterRuntimeClose() {
+        listener.onAcceptedLunge(attacker, true);
+        listener.close();
+        pending.forEach(Runnable::run);
+        verify(combat, never()).retag(any(), any(), anyBoolean());
+    }
+
+    @Test void outsideLungeRespectsBypassDisconnectAndAlreadyRefreshedTimer() {
+        when(scopes.combatBound(attacker)).thenReturn(true);
+        when(attacker.hasPermission("warzonerotator.bypass")).thenReturn(true);
+        listener.onAcceptedLunge(attacker, false);
+        assertTrue(pending.isEmpty());
+        when(attacker.hasPermission("warzonerotator.bypass")).thenReturn(false);
+        listener.onAcceptedLunge(attacker, false);
+        when(attacker.isOnline()).thenReturn(false);
+        pending.forEach(Runnable::run);
+        pending.clear();
+        when(attacker.isOnline()).thenReturn(true);
+        when(combat.remaining(attacker)).thenReturn(Duration.ofSeconds(30));
+        listener.onAcceptedLunge(attacker, false);
+        pending.forEach(Runnable::run);
+        verify(combat, never()).retag(any(), any(), anyBoolean());
+    }
+
     @Test void pvpRefreshesBothExistingTagsAfterOtherListeners() {
         listener.onPvpDamage(hit());
         verifyNoInteractions(combat);

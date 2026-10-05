@@ -208,6 +208,7 @@ public final class WarzoneRuntime {
         HandlerList.unregisterAll(restrictionListener);
         HandlerList.unregisterAll(combatPositionListener);
         HandlerList.unregisterAll(combatRetagListener);
+        combatRetagListener.close();
         HandlerList.unregisterAll(combatVaultCommands);
         HandlerList.unregisterAll(combatBar);
         HandlerList.unregisterAll(stasisPearlListener);
@@ -397,6 +398,10 @@ public final class WarzoneRuntime {
     public RotationManager rotations() { return rotations; }
     public CooldownService cooldowns() { return cooldowns; }
     public CombatScopeService combatScopes() { return combatScopes; }
+
+    public void retagAcceptedLunge(Player player) {
+        combatRetagListener.onAcceptedLunge(player, appliesAt(player.getLocation()));
+    }
     public WarzoneGuiManager guis() { return guis; }
     public boolean schedulerActive() { return clockTask != null && !clockTask.isCancelled(); }
 

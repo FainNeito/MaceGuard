@@ -17,6 +17,8 @@ This SPEAR slice covers the cumulative Warzone changes and the PR authorized on 
 
 ## Boundaries
 
+- **MG-WZ-12:** When an eligible main-hand Lunge Jab passes the active Spear and Lunge restrictions, MaceGuard shall refresh an existing Warzone combat tag inside the effective Warzone, or an existing ordinary CombatLogX tag outside it. It shall use CombatLogX's configured duration without starting combat or creating a Warzone latch. Denied, suppressed, unenchanted, unready, off-hand, and cancelled actions shall not refresh combat. Deferred refreshes shall recheck combat, bypass, connection, and runtime lifetime.
+
 - **MG-WZ-10:** While COBWEBS is active, a water-bucket right-click shall pass the initial WorldGuard placement delegate as well as the bucket delegates, only for replaceable destinations inside the effective Warzone with no explicit policy veto. Lava, waterlogging/map modifications, excluded regions, and item-use denials remain protected.
 - **MG-WZ-11:** While CARTS is active, flint-and-steel item use shall honor Bukkit's separate item-use result. A predicted block-use denial alone shall not reject an otherwise permitted item action; an item-use denial shall never be reopened.
 

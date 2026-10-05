@@ -50,6 +50,8 @@ class LungeJabEnforcementTest {
 
         harness.listener.onArmSwing(harness.swing);
 
+        verify(harness.runtime).retagAcceptedLunge(harness.player);
+
         assertFalse(harness.cooldowns.active(harness.playerId, RestrictionTarget.SPEAR_LUNGE));
         Runnable fallback = harness.nextTick.get();
         assertNotNull(fallback);
@@ -77,9 +79,45 @@ class LungeJabEnforcementTest {
                         decision.target() == RestrictionTarget.SPEAR_LUNGE && decision.denied()),
                 eq(null));
         verify(harness.scheduler, never()).runTask(eq(harness.plugin), any(Runnable.class));
+        verify(harness.runtime, never()).retagAcceptedLunge(any());
+    }
+
+    @Test void offHandAndLowFoodDoNotRetag() {
+        Harness harness = harness(RestrictionMode.COOLDOWN, Duration.ofSeconds(5));
+        when(harness.swing.getHand()).thenReturn(EquipmentSlot.OFF_HAND);
+        harness.listener.onArmSwing(harness.swing);
+        when(harness.swing.getHand()).thenReturn(EquipmentSlot.HAND);
+        when(harness.player.getFoodLevel()).thenReturn(0);
+        harness.listener.onArmSwing(harness.swing);
+        verify(harness.runtime, never()).retagAcceptedLunge(any());
+    }
+
+    @Test void unenchantedJabDoesNotRetag() {
+        Harness harness = harness(RestrictionMode.COOLDOWN, Duration.ofSeconds(5));
+        when(harness.lungeAccess.itemLevel(harness.spear)).thenReturn(0);
+        harness.listener.onArmSwing(harness.swing);
+        verify(harness.runtime, never()).retagAcceptedLunge(any());
+    }
+
+    @Test void activeLungeCooldownDoesNotRetag() {
+        Harness harness = harness(RestrictionMode.COOLDOWN, Duration.ofSeconds(5));
+        harness.cooldowns.start(harness.playerId, RestrictionTarget.SPEAR_LUNGE,
+                Duration.ofSeconds(5));
+        harness.listener.onArmSwing(harness.swing);
+        verify(harness.runtime, never()).retagAcceptedLunge(any());
     }
 
     private Harness harness(RestrictionMode mode, Duration duration) {
+        return harness(mode, duration, true);
+    }
+
+    @Test void unreadyJabDoesNotRetag() {
+        Harness harness = harness(RestrictionMode.COOLDOWN, Duration.ofSeconds(5), false);
+        harness.listener.onArmSwing(harness.swing);
+        verify(harness.runtime, never()).retagAcceptedLunge(any());
+    }
+
+    private Harness harness(RestrictionMode mode, Duration duration, boolean ready) {
         MaceGuardPlugin plugin = mock(MaceGuardPlugin.class);
         PluginRuntime pluginRuntime = mock(PluginRuntime.class);
         WarzoneModule module = mock(WarzoneModule.class);
@@ -156,14 +194,15 @@ class LungeJabEnforcementTest {
         when(swing.getHand()).thenReturn(EquipmentSlot.HAND);
         when(swing.getPlayer()).thenReturn(player);
 
-        return new Harness(plugin, scheduler,
+        return new Harness(plugin, scheduler, runtime,
                 new AttributeSwapRestrictionListener(plugin, module, suppressor,
-                        (ignoredPlayer, ignoredItem) -> true),
+                        (ignoredPlayer, ignoredItem) -> ready),
                 player, inventory, spear, itemMeta, lungeAccess, messages, cooldowns,
                 playerId, swing, nextTick);
     }
 
     private record Harness(MaceGuardPlugin plugin, BukkitScheduler scheduler,
+                           WarzoneRuntime runtime,
                            AttributeSwapRestrictionListener listener, Player player,
                            PlayerInventory inventory, ItemStack spear, ItemMeta itemMeta,
                            LungeEnchantmentSuppressor.LungeAccess lungeAccess,
