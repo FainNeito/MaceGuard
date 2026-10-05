@@ -314,7 +314,6 @@ class DirectCombatLogXGatewayTest {
     }
 
     public static final class FakeTagEvent extends Event {
-    private static final String BOSS_BAR_KEY = "bossbar";
         private static final HandlerList HANDLERS = new HandlerList();
         private final Player player;
         FakeTagEvent(Player player) { this.player = player; }
@@ -324,7 +323,6 @@ class DirectCombatLogXGatewayTest {
     }
 
     public static final class FakeReTagEvent extends Event {
-    private static final String BOSS_BAR_KEY = "bossbar";
         private static final HandlerList HANDLERS = new HandlerList();
         private final Player player;
         FakeReTagEvent(Player player) { this.player = player; }
@@ -334,7 +332,6 @@ class DirectCombatLogXGatewayTest {
     }
 
     public static final class FakeUntagEvent extends Event {
-    private static final String BOSS_BAR_KEY = "bossbar";
         private static final HandlerList HANDLERS = new HandlerList();
         private final Player player;
         FakeUntagEvent(Player player) { this.player = player; }

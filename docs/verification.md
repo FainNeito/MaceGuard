@@ -9,6 +9,7 @@
 - Refine: final Java 21 canonical Maven-wrapper `clean verify` passed **634 tests, zero failures/errors/skips**. Local Lizard 1.24.0 checks of reported functions/helpers meet complexity/length/parameter limits; `git diff --check` passed. No lint settings or thresholds were weakened. Project-local EARS/state tooling remains absent.
 - Infrastructure: Build/Codacy pull-request branch filters now include #46's canonical continuation branch so #47 can receive hosted checks. Behavioral proof does not apply to this trigger-only change; validation consists of the explicit branch filter and actual hosted dispatch/approval state.
 - Delivery remains via #47; direct push permission on #46 is unavailable. Hosted final-head analysis, canonical integration and real player acceptance remain separate. Production was not changed.
+- Hosted refine: initial cleanup head `0bda431` dispatched both workflows, but GitHub requires maintainer approval for this fork. Codacy's separate service completed and identified two remaining findings; nested duplicate constants were removed, and the local ordered/null-capable parser map uses Java 21's sized factory. New parsing regressions verify order, nulls, independent copy and invalid keys. Canonical clean verification passes 636 tests, zero failures/errors/skips.
 
 ### Wind-charge combat retag, 2026-10-05
 

@@ -1563,8 +1563,6 @@ public final class WarzoneGuiManager implements Listener {
     }
 
     static final class Session {
-    private static final String BATCH_REVIEW = "batch-review";
-    private static final String ADMIN_PERMISSION = "warzonerotator.admin";
         final UUID id;
         private Operation operation;
         private final SelectionSourceType originalSource;
@@ -1594,8 +1592,6 @@ public final class WarzoneGuiManager implements Listener {
     }
 
     static final class ManagedHolder implements InventoryHolder {
-    private static final String BATCH_REVIEW = "batch-review";
-    private static final String ADMIN_PERMISSION = "warzonerotator.admin";
         private final UUID sessionId;
         private final Screen screen;
         private final UUID viewId;

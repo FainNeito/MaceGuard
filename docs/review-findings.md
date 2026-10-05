@@ -38,6 +38,14 @@ so the combined candidate preserves a complete disposition.
 
 ## Verification and delivery boundaries
 
+- First hosted refresh at `0bda431` reported two remaining findings: duplicate
+  bossbar constants in nested test helpers and a map-constructor warning in the
+  extracted scalar reader. Remove nested duplicate constants. For the local,
+  unshared parser map, use Java 21's sized LinkedHashMap factory, preserving
+  insertion order and YAML nulls; ConcurrentHashMap would change this contract.
+  Dedicated regressions verify order, nulls, independent copy and invalid keys.
+  No rule suppression is used.
+
 - Existing canonical Java 21 Maven-wrapper verification is the behavioral regression
   guard. Parameterization adds separately reported cases, not new gameplay behavior.
 - Final local `mvnw.cmd -B clean verify` passed 634 tests, zero failures/errors/skips.

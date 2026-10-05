@@ -11,7 +11,8 @@ final class StrictConfigValues {
 
     static Map<String, Object> map(Object value, String path, List<String> errors) {
         if (value instanceof Map<?, ?> raw) {
-            Map<String, Object> result = new LinkedHashMap<>();
+            // This local parse result preserves YAML order and null values; it is never shared.
+            Map<String, Object> result = LinkedHashMap.newLinkedHashMap(raw.size());
             for (Map.Entry<?, ?> entry : raw.entrySet()) {
                 if (!(entry.getKey() instanceof String key)) {
                     errors.add(path + " contains a non-string key.");
