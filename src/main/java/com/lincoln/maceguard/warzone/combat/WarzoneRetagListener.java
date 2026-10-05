@@ -1,6 +1,7 @@
 package com.lincoln.maceguard.warzone.combat;
 
 import org.bukkit.entity.EnderPearl;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -11,6 +12,7 @@ import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.Duration;
+import java.util.function.Predicate;
 
 /** Refreshes existing CombatLogX timers for accepted combat actions. */
 public final class WarzoneRetagListener implements Listener {
@@ -18,18 +20,32 @@ public final class WarzoneRetagListener implements Listener {
 
     private final JavaPlugin plugin;
     private final CombatScopeService scopes;
+    private final Predicate<Player> insideWarzone;
+    private final Predicate<Player> windChargeEnabled;
     private boolean closed;
 
     public WarzoneRetagListener(JavaPlugin plugin, CombatScopeService scopes) {
+        this(plugin, scopes, player -> false, player -> true);
+    }
+
+    public WarzoneRetagListener(JavaPlugin plugin, CombatScopeService scopes,
+                               Predicate<Player> insideWarzone,
+                               Predicate<Player> windChargeEnabled) {
         this.plugin = plugin;
         this.scopes = scopes;
+        this.insideWarzone = insideWarzone;
+        this.windChargeEnabled = windChargeEnabled;
     }
 
     /** Called only after the Lunge Jab eligibility and restriction checks pass. */
     public void onAcceptedLunge(Player player, boolean insideWarzone) {
-        if (closed || !eligible(player, insideWarzone)) return;
+        scheduleRefresh(player, insideWarzone);
+    }
+
+    private void scheduleRefresh(Player player, boolean warzoneOnly) {
+        if (closed || !eligible(player, warzoneOnly)) return;
         plugin.getServer().getScheduler().runTask(plugin,
-                () -> refresh(player, null, false, insideWarzone));
+                () -> refresh(player, null, false, warzoneOnly));
     }
 
     public void close() { closed = true; }
@@ -54,11 +70,23 @@ public final class WarzoneRetagListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onPearlThrow(ProjectileLaunchEvent event) {
+    public void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (event.isCancelled()) return;
+        if (event.getEntity().getType() == EntityType.WIND_CHARGE) {
+            onWindChargeLaunch(event.getEntity());
+            return;
+        }
         if (!(event.getEntity() instanceof EnderPearl pearl)
                 || !(pearl.getShooter() instanceof Player player)
                 || !scopes.warzoneTagged(player)) return;
         plugin.getServer().getScheduler().runTask(plugin, () -> refresh(player, null, false));
+    }
+
+    private void onWindChargeLaunch(Projectile projectile) {
+        if (!(projectile.getShooter() instanceof Player player)) return;
+        boolean warzoneOnly = insideWarzone.test(player);
+        if (warzoneOnly && !windChargeEnabled.test(player)) return;
+        scheduleRefresh(player, warzoneOnly);
     }
 
     private Player attacker(EntityDamageByEntityEvent event) {

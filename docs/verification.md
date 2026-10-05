@@ -2,6 +2,14 @@
 
 ## Local evidence
 
+### Wind-charge combat retag, 2026-10-05
+
+- Spec: MG-WZ-13 follows the user's correction: disabled wind charges must never retag Warzone Combat. Only successful enabled launches inside refresh existing Warzone tags; successful outside launches refresh existing ordinary/carried CombatLogX tags. No new combat tags or latches are created by this service.
+- Prove: a new outside-launch regression failed behaviorally against the previous handler (12 tests, 1 failure, no errors): CombatLogX retag was never called. A subsequent missing-import error in the expanded fixtures was corrected before final verification.
+- Engine/architecture: reuse the existing deferred CombatLogX refresh and its lifecycle/bypass/expiry fences. Capture effective scope at launch, verify inside enablement against the active restriction, and ignore cancelled events and non-player shooters. Register the listener even when Warzone gameplay is disabled for global outside behavior. No new CombatLogX API signatures or operator settings.
+- Refine: Java 21 canonical Maven-wrapper `clean verify` passed 618 tests, zero failures/errors/skips; `git diff --check` passed. Existing item-denial tests still pass. Manual SPEAR records are maintained because project-local EARS/state helpers are absent.
+- Delivery continues on fork PR #47 targeting canonical #46's branch. Production was not changed. Real player acceptance still needs enabled/disabled/cooldown wind charges inside and ordinary/carried/absent combat outside, including bar duration, runtime reload and dependency disable.
+
 ### Lunge combat retag, 2026-10-05
 
 - Spec: MG-WZ-12 refreshes existing combat on permitted eligible Lunge use, with Warzone-only tagging inside and ordinary CombatLogX tagging outside. Source inspection showed the accepted Jab path previously started only its item cooldown and never requested a combat refresh.

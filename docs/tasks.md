@@ -30,5 +30,7 @@ Local EARS/state helpers are absent. Requirements and these task/evidence record
 | MG-WZ-10/11 | spec/prove/engine/arch/refine | Fix initial WorldGuard water right-click routing and separate flint item-use result | Two regressions reproduced; focused 36 and full 604 tests pass; PR CI and live acceptance pending |
 ## Lunge combat retag follow-up
 
+- [x] MG-WZ-13: Retag enabled successful wind-charge launches for Warzone combat and accepted outside wind-charge launches for global CombatLogX; disabled attempts never retag. Scope, lifecycle and denial regression checks pass locally; live acceptance remains pending.
+
 - [x] MG-WZ-12: Connect accepted Lunge Jabs to scope-aware combat refresh; fence deferred work on runtime replacement.
 - [x] Verify permitted/denied Jab paths, ordinary outside combat, expired/absent tags, and runtime shutdown; submit follow-up PR #47 targeting canonical PR #46's branch. Live player acceptance remains separate.

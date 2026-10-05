@@ -129,7 +129,8 @@ public final class WarzoneRuntime {
         this.combatLogX = CombatLogXGatewayFactory.discover(plugin);
         this.combatScopes = new CombatScopeService(combatLogX, queries,
                 config.combat().warzoneTag());
-        this.combatRetagListener = new WarzoneRetagListener(plugin, combatScopes);
+        this.combatRetagListener = new WarzoneRetagListener(plugin, combatScopes,
+                player -> appliesAt(player.getLocation()), this::windChargeEnabled);
         this.combatVaultCommands = new CombatVaultCommandListener(combatLogX, messages,
                 plugin.getServer(), plugin.getLogger()::warning);
         this.combatBar = new WarzoneCombatBar(combatScopes, config.combat().warzoneTag());
@@ -172,10 +173,11 @@ public final class WarzoneRuntime {
         }, 20L, 20L);
         // Ordinary CombatLogX combat must protect vaults even if Warzone gameplay is disabled.
         plugin.getServer().getPluginManager().registerEvents(combatVaultCommands, plugin);
+        // Global wind-charge retagging remains available when Warzone gameplay is disabled.
+        plugin.getServer().getPluginManager().registerEvents(combatRetagListener, plugin);
         if (!config.enabled()) return;
         plugin.getServer().getPluginManager().registerEvents(restrictionListener, plugin);
         plugin.getServer().getPluginManager().registerEvents(combatPositionListener, plugin);
-        plugin.getServer().getPluginManager().registerEvents(combatRetagListener, plugin);
         plugin.getServer().getPluginManager().registerEvents(combatBar, plugin);
         plugin.getServer().getPluginManager().registerEvents(stasisPearlListener, plugin);
         combatLogX.register(combatIntegration);
@@ -401,6 +403,14 @@ public final class WarzoneRuntime {
 
     public void retagAcceptedLunge(Player player) {
         combatRetagListener.onAcceptedLunge(player, appliesAt(player.getLocation()));
+    }
+
+    private boolean windChargeEnabled(Player player) {
+        RestrictionDecision decision = restrictions.material(player.getUniqueId(), Material.WIND_CHARGE,
+                player.hasPermission("warzonerotator.bypass"), appliesAt(player.getLocation()), false);
+        // Launch finalization can already have started its item cooldown. Only DISABLED
+        // suppresses retag here; cancellation guards the rejected-use/cooldown path.
+        return decision.result() != RestrictionDecision.Result.DISABLED;
     }
     public WarzoneGuiManager guis() { return guis; }
     public boolean schedulerActive() { return clockTask != null && !clockTask.isCancelled(); }

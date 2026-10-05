@@ -17,6 +17,8 @@ This SPEAR slice covers the cumulative Warzone changes and the PR authorized on 
 
 ## Boundaries
 
+- **MG-WZ-13:** When a Warzone combat-tagged player successfully launches a wind charge inside the effective Warzone and wind charges are enabled, MaceGuard shall refresh the existing CombatLogX timer. Disabled attempts shall not refresh combat. Outside the effective Warzone, a successful player wind-charge launch shall refresh existing ordinary CombatLogX combat, including carried Warzone tags. Untagged/bypassed players, dispensers, other projectiles, and cancelled launches shall not trigger a refresh. Deferred work shall respect expiry, disconnect and runtime replacement; duplicate refreshes shall be avoided.
+
 - **MG-WZ-12:** When an eligible main-hand Lunge Jab passes the active Spear and Lunge restrictions, MaceGuard shall refresh an existing Warzone combat tag inside the effective Warzone, or an existing ordinary CombatLogX tag outside it. It shall use CombatLogX's configured duration without starting combat or creating a Warzone latch. Denied, suppressed, unenchanted, unready, off-hand, and cancelled actions shall not refresh combat. Deferred refreshes shall recheck combat, bypass, connection, and runtime lifetime.
 
 - **MG-WZ-10:** While COBWEBS is active, a water-bucket right-click shall pass the initial WorldGuard placement delegate as well as the bucket delegates, only for replaceable destinations inside the effective Warzone with no explicit policy veto. Lava, waterlogging/map modifications, excluded regions, and item-use denials remain protected.
