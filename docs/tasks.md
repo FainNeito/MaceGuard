@@ -31,4 +31,4 @@ Local EARS/state helpers are absent. Requirements and these task/evidence record
 ## Lunge combat retag follow-up
 
 - [x] MG-WZ-12: Connect accepted Lunge Jabs to scope-aware combat refresh; fence deferred work on runtime replacement.
-- [x] Verify permitted/denied Jab paths, ordinary outside combat, expired/absent tags, and runtime shutdown; update canonical PR #46 evidence. Live player acceptance remains separate.
+- [x] Verify permitted/denied Jab paths, ordinary outside combat, expired/absent tags, and runtime shutdown; submit follow-up PR #47 targeting canonical PR #46's branch. Live player acceptance remains separate.

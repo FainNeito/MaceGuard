@@ -10,6 +10,7 @@
 - Refine: canonical Java 21 Maven-wrapper `clean verify` passes 613 tests with zero failures/errors/skips. No project-local EARS/state helpers exist; manual requirements/task/evidence records are maintained.
 - Current authoritative main `38e4255cf1940c2397da5a4e2cecc6c56498c8b4` was fetched, inspected, and safely merged into the ongoing candidate. GitHub reports #45 closed and #46 as its canonical continuation at the same former head; delivery follows #46. Existing cumulative Codacy findings remain release blockers.
 - Production was not changed. Acceptance still requires real Lunge uses inside with enabled/disabled/cooldown modifiers and outside with ordinary/carried/absent combat, verifying CombatLogX duration, bar continuity, bypass and reload behavior on the deployed server.
+- Delivery: direct canonical-branch push was denied to the signed-in FainNeito account (403). Follow-up PR #47 targets #46's canonical source branch and is mergeable; it preserves #46 as the combined candidate. Exact gameplay head `18842e3c8d8383e22be9154fcee63848cafa3e26` had no Actions runs, commit statuses or inline review threads at inspection. The Build workflow only triggers for PRs targeting main; CodeRabbit skipped review for a non-default base. Local tests do not replace CI/review of the combined #46 head after integration.
 
 ### Water/flint report follow-up, 2026-10-04
 
