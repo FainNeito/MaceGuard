@@ -1,5 +1,7 @@
 # Warzone combat and batch modifier implementation
 
+- Review cleanup extracts platform eligibility, GUI draft operations and strict config scalar readers. Runtime-validated CombatLogX signatures are bundled into private records; preference rollback, first matching expansion, region ordering and public adapter methods are preserved. Three reported caches use ConcurrentHashMap; Bukkit side effects still require the server thread. Review findings and dispositions are recorded in `docs/review-findings.md`.
+
 - `WarzoneGuiManager` owns the per-player draft. `RotationManager.previewCustom` validates the composed set; `applyPrepared` changes the live set only after preview and duration confirmation.
 - `CombatScopeService` owns a transient latch derived from CombatLogX and WorldGuard. `WarzoneCombatBar` reads the gateway's remaining and maximum seconds; the runtime reconciles and clears its owned bar.
 - `DirectCombatLogXGateway` checks CombatLogX's enabled Boss Bar updater, temporarily suppresses its cached per-player display setting, and calls the updater's public `remove(Player)` method before the MaceGuard bar appears. It restores and saves the original setting only after MaceGuard hides its bar. An adapter failure keeps MaceGuard's bar hidden.

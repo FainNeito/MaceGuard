@@ -60,6 +60,10 @@ public final class WarzoneRetagListener implements Listener {
         if (!(event.getEntity() instanceof Player victim) || event.getFinalDamage() <= 0) return;
         Player attacker = attacker(event);
         if (attacker == null || attacker.getUniqueId().equals(victim.getUniqueId())) return;
+        schedulePvpRefresh(attacker, victim);
+    }
+
+    private void schedulePvpRefresh(Player attacker, Player victim) {
         boolean attackerTagged = scopes.warzoneTagged(attacker);
         boolean victimTagged = scopes.warzoneTagged(victim);
         if (!attackerTagged && !victimTagged) return;

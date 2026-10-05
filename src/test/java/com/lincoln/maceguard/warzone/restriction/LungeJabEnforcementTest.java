@@ -119,13 +119,11 @@ class LungeJabEnforcementTest {
 
     private Harness harness(RestrictionMode mode, Duration duration, boolean ready) {
         MaceGuardPlugin plugin = mock(MaceGuardPlugin.class);
-        PluginRuntime pluginRuntime = mock(PluginRuntime.class);
         WarzoneModule module = mock(WarzoneModule.class);
         WarzoneRuntime runtime = mock(WarzoneRuntime.class);
         WarzoneRegionService region = mock(WarzoneRegionService.class);
         RotationManager rotations = mock(RotationManager.class);
         WarzoneMessageService messages = mock(WarzoneMessageService.class);
-        CombatScopeService combatScopes = mock(CombatScopeService.class);
         Server server = mock(Server.class);
         BukkitScheduler scheduler = mock(BukkitScheduler.class);
         BukkitTask repeatingTask = mock(BukkitTask.class);
@@ -146,43 +144,11 @@ class LungeJabEnforcementTest {
         CooldownService cooldowns = new CooldownService(clock::get);
         UUID playerId = UUID.randomUUID();
 
-        when(plugin.getServer()).thenReturn(server);
-        when(server.getScheduler()).thenReturn(scheduler);
-        when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), eq(1L), eq(1L)))
-                .thenReturn(repeatingTask);
-        when(scheduler.runTask(eq(plugin), any(Runnable.class))).thenAnswer(invocation -> {
-            nextTick.set(invocation.getArgument(1));
-            return nextTask;
-        });
-        when(plugin.runtime()).thenReturn(pluginRuntime);
-        when(pluginRuntime.warzone()).thenReturn(module);
-        when(module.runtime()).thenReturn(runtime);
-        when(runtime.region()).thenReturn(region);
-        when(runtime.rotations()).thenReturn(rotations);
-        when(runtime.messages()).thenReturn(messages);
-        when(runtime.cooldowns()).thenReturn(cooldowns);
-        when(runtime.combatScopes()).thenReturn(combatScopes);
+        stubScheduler(plugin, server, scheduler, repeatingTask, nextTask, nextTick);
+        bindRuntime(plugin, module, runtime, region, rotations, messages, cooldowns);
 
-        when(player.getUniqueId()).thenReturn(playerId);
-        when(player.getInventory()).thenReturn(inventory);
-        when(player.getLocation()).thenReturn(location);
-        when(player.getFoodLevel()).thenReturn(20);
-        when(player.isInWater()).thenReturn(false);
-        when(player.isGliding()).thenReturn(false);
-        when(player.isOnline()).thenReturn(true);
-        when(player.hasPermission("warzonerotator.bypass")).thenReturn(false);
-
-        when(inventory.getItemInMainHand()).thenReturn(spear);
-        when(inventory.getHeldItemSlot()).thenReturn(0);
-        when(inventory.getSize()).thenReturn(1);
-        when(inventory.getItem(anyInt())).thenReturn(spear);
-        when(spear.getType()).thenReturn(Material.IRON_SPEAR);
-        when(spear.getItemMeta()).thenReturn(itemMeta);
-        when(spear.setItemMeta(itemMeta)).thenReturn(true);
+        stubPlayer(player, inventory, spear, itemMeta, lungeAccess, playerId, location);
         when(itemMeta.getPersistentDataContainer()).thenReturn(data);
-        when(lungeAccess.itemLevel(spear)).thenReturn(1);
-        when(lungeAccess.metaLevel(itemMeta)).thenReturn(1);
-
         when(region.contains(any(Location.class))).thenReturn(true);
         WarzoneConfig.Restriction restriction = new WarzoneConfig.Restriction(
                 RestrictionTarget.SPEAR_LUNGE, mode, duration);
@@ -199,6 +165,60 @@ class LungeJabEnforcementTest {
                         (ignoredPlayer, ignoredItem) -> ready),
                 player, inventory, spear, itemMeta, lungeAccess, messages, cooldowns,
                 playerId, swing, nextTick);
+    }
+
+    private void bindRuntime(MaceGuardPlugin plugin, WarzoneModule module, WarzoneRuntime runtime,
+                             WarzoneRegionService region, RotationManager rotations,
+                             WarzoneMessageService messages, CooldownService cooldowns) {
+        PluginRuntime pluginRuntime = mock(PluginRuntime.class);
+        CombatScopeService combatScopes = mock(CombatScopeService.class);
+        when(plugin.runtime()).thenReturn(pluginRuntime);
+        when(pluginRuntime.warzone()).thenReturn(module);
+        when(module.runtime()).thenReturn(runtime);
+        when(runtime.region()).thenReturn(region);
+        when(runtime.rotations()).thenReturn(rotations);
+        when(runtime.messages()).thenReturn(messages);
+        when(runtime.cooldowns()).thenReturn(cooldowns);
+        when(runtime.combatScopes()).thenReturn(combatScopes);
+
+    }
+
+    private void stubScheduler(MaceGuardPlugin plugin, Server server, BukkitScheduler scheduler,
+                               BukkitTask repeatingTask, BukkitTask nextTask,
+                               AtomicReference<Runnable> nextTick) {
+        when(plugin.getServer()).thenReturn(server);
+        when(server.getScheduler()).thenReturn(scheduler);
+        when(scheduler.runTaskTimer(eq(plugin), any(Runnable.class), eq(1L), eq(1L)))
+                .thenReturn(repeatingTask);
+        when(scheduler.runTask(eq(plugin), any(Runnable.class))).thenAnswer(invocation -> {
+            nextTick.set(invocation.getArgument(1));
+            return nextTask;
+        });
+    }
+
+    private void stubPlayer(Player player, PlayerInventory inventory, ItemStack spear, ItemMeta itemMeta,
+                            LungeEnchantmentSuppressor.LungeAccess lungeAccess, UUID playerId,
+                            Location location) {
+        when(player.getUniqueId()).thenReturn(playerId);
+        when(player.getInventory()).thenReturn(inventory);
+        when(player.getLocation()).thenReturn(location);
+        when(player.getFoodLevel()).thenReturn(20);
+        when(player.isInWater()).thenReturn(false);
+        when(player.isGliding()).thenReturn(false);
+        when(player.isOnline()).thenReturn(true);
+        when(player.hasPermission("warzonerotator.bypass")).thenReturn(false);
+
+        when(inventory.getItemInMainHand()).thenReturn(spear);
+        when(inventory.getHeldItemSlot()).thenReturn(0);
+        when(inventory.getSize()).thenReturn(1);
+        when(inventory.getItem(anyInt())).thenReturn(spear);
+        when(spear.getType()).thenReturn(Material.IRON_SPEAR);
+        when(spear.getItemMeta()).thenReturn(itemMeta);
+        when(spear.setItemMeta(itemMeta)).thenReturn(true);
+
+        when(lungeAccess.itemLevel(spear)).thenReturn(1);
+        when(lungeAccess.metaLevel(itemMeta)).thenReturn(1);
+
     }
 
     private record Harness(MaceGuardPlugin plugin, BukkitScheduler scheduler,

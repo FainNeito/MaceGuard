@@ -2,6 +2,14 @@
 
 ## Local evidence
 
+### Codacy findings cleanup, 2026-10-05
+
+- Spec/prove: captured 29 confirmed and 12 potential findings from #46 plus the #47 fixture-length finding. These are static-analysis source findings; no historical gameplay red/green result is claimed. See `review-findings.md` for each disposition.
+- Engine/architecture: split eligibility/rendering/validation/setup methods, preserve adapter signatures and suppression rollback, name repeated literals, use concurrent maps for the three flagged caches, and parameterize water test cases. Bukkit operations remain on the server thread. Strict config scalar readers retain the same error paths and defaults.
+- Refine: final Java 21 canonical Maven-wrapper `clean verify` passed **634 tests, zero failures/errors/skips**. Local Lizard 1.24.0 checks of reported functions/helpers meet complexity/length/parameter limits; `git diff --check` passed. No lint settings or thresholds were weakened. Project-local EARS/state tooling remains absent.
+- Infrastructure: Build/Codacy pull-request branch filters now include #46's canonical continuation branch so #47 can receive hosted checks. Behavioral proof does not apply to this trigger-only change; validation consists of the explicit branch filter and actual hosted dispatch/approval state.
+- Delivery remains via #47; direct push permission on #46 is unavailable. Hosted final-head analysis, canonical integration and real player acceptance remain separate. Production was not changed.
+
 ### Wind-charge combat retag, 2026-10-05
 
 - Spec: MG-WZ-13 follows the user's correction: disabled wind charges must never retag Warzone Combat. Only successful enabled launches inside refresh existing Warzone tags; successful outside launches refresh existing ordinary/carried CombatLogX tags. No new combat tags or latches are created by this service.

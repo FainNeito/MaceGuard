@@ -159,18 +159,7 @@ public final class WarzoneRuntime {
         if (activatePendingRecovery) activatePendingCobwebRecovery();
         combatIntegration.setBarActive(pendingCobwebRecoveryActivated);
         plugin.getServer().getPluginManager().registerEvents(guis, plugin);
-        clockTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
-            rotations.tick();
-            cooldowns.discardExpired();
-            messages.cleanup();
-            restrictionListener.cleanup();
-            combatIntegration.cleanup();
-            if (pendingCobwebRecoveryActivated)
-                combatBar.reconcile(plugin.getServer().getOnlinePlayers());
-            guis.cleanup();
-            if (pendingCobwebRecoveryActivated && pendingWarzoneCobwebClear
-                    && region.fullyResolved()) clearTrackedCobwebs();
-        }, 20L, 20L);
+        clockTask = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickRuntime, 20L, 20L);
         // Ordinary CombatLogX combat must protect vaults even if Warzone gameplay is disabled.
         plugin.getServer().getPluginManager().registerEvents(combatVaultCommands, plugin);
         // Global wind-charge retagging remains available when Warzone gameplay is disabled.
@@ -191,6 +180,19 @@ public final class WarzoneRuntime {
             if (pendingCobwebRecoveryActivated && resolved && pendingWarzoneCobwebClear)
                 clearTrackedCobwebs();
         }, 20L, 100L);
+    }
+
+    private void tickRuntime() {
+        rotations.tick();
+        cooldowns.discardExpired();
+        messages.cleanup();
+        restrictionListener.cleanup();
+        combatIntegration.cleanup();
+        if (pendingCobwebRecoveryActivated)
+            combatBar.reconcile(plugin.getServer().getOnlinePlayers());
+        guis.cleanup();
+        if (pendingCobwebRecoveryActivated && pendingWarzoneCobwebClear
+                && region.fullyResolved()) clearTrackedCobwebs();
     }
 
     void activatePendingCobwebRecovery() {
