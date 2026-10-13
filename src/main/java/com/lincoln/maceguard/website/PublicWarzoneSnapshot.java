@@ -59,15 +59,28 @@ public final class PublicWarzoneSnapshot {
             Map<String, Object> copy = new LinkedHashMap<>();
             map.forEach((key, value) -> copy.put(key.toString(), value)); rows.add(copy);
         }
-        List<Map<String, Object>> leaders = validateLeaders(raw);
+        Map<String,Object> metadata=duelMetadata(rotation,raw);
+        Object entries=raw instanceof Map<?,?> values ? metadata.isEmpty()?null:values.get("items") : raw;
+        List<Map<String, Object>> leaders = validateLeaders(entries,raw instanceof Map<?,?>?500:3);
         if (leaders != null) rows.addAll(leaders);
         String status = leaders == null ? "Weekly WarzoneDuels results are unavailable."
                 : leaders.isEmpty() ? "No counted match wins this week." : "Counted WarzoneDuels match wins this week.";
         rows.add(Map.of("id", "duels-status", "type", "activity", "name", "Weekly duel wins", "description", status));
-        Map<String, Object> result = new LinkedHashMap<>(rotation); result.put("items", rows); return result;
+        Map<String, Object> result = new LinkedHashMap<>(rotation); result.put("items", rows); if(leaders!=null)result.putAll(metadata); result.put("source","server_export"); return result;
     }
-    private static List<Map<String, Object>> validateLeaders(Object raw) {
-        if (!(raw instanceof List<?> values) || values.size() > 3) return null;
+    private static Map<String,Object> duelMetadata(Map<String,Object> rotation,Object raw) {
+        if(!(raw instanceof Map<?,?> values))return Map.of();
+        try {
+            long capture=Instant.parse((String)rotation.get("generatedAt")).toEpochMilli();
+            long week=Instant.parse((String)values.get("weekStartsAt")).toEpochMilli();
+            long updated=Instant.parse((String)values.get("generatedAt")).toEpochMilli();
+            if(week!=weekStart(capture)||updated<week||updated>capture||!(values.get("complete") instanceof Boolean complete))return Map.of();
+            return Map.of("weekStartsAt",Instant.ofEpochMilli(week).toString(),
+                    "duelUpdatedAt",Instant.ofEpochMilli(updated).toString(),"duelResultsComplete",complete);
+        } catch(RuntimeException error) { return Map.of(); }
+    }
+    private static List<Map<String, Object>> validateLeaders(Object raw,int limit) {
+        if (!(raw instanceof List<?> values) || values.size() > limit) return null;
         List<Map<String, Object>> leaders = new ArrayList<>();
         var ids = new java.util.HashSet<String>();
         for (Object value : values) {

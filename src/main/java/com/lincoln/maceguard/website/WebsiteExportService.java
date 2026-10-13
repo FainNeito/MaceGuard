@@ -22,6 +22,7 @@ public final class WebsiteExportService implements AutoCloseable {
     private BukkitTask task;
     private CompletableFuture<?> pending;
     private HttpClient client;
+    private java.util.concurrent.ThreadPoolExecutor readerPool;
     private URI endpoint;
     private String secret;
     public WebsiteExportService(MaceGuardPlugin plugin) { this.plugin = plugin; }
@@ -40,6 +41,10 @@ public final class WebsiteExportService implements AutoCloseable {
             if (seconds < 60 || seconds > 3600) throw new IllegalArgumentException();
             client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
                     .followRedirects(HttpClient.Redirect.NEVER).build();
+            readerPool = new java.util.concurrent.ThreadPoolExecutor(1,1,0L,java.util.concurrent.TimeUnit.SECONDS,
+                    new java.util.concurrent.ArrayBlockingQueue<>(1),work -> {
+                        Thread thread=new Thread(work,"maceguard-website-reader");thread.setDaemon(true);return thread;
+                    });
             task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::publish, 20L, seconds * 20L);
         } catch (Exception error) {
             plugin.getLogger().warning("Website export disabled; check configuration and its secret environment variable.");
@@ -47,7 +52,7 @@ public final class WebsiteExportService implements AutoCloseable {
         }
     }
     private void publish() {
-        if (closed || pending != null && !pending.isDone()) return;
+        if (closed || pending != null && !pending.isDone() || readerPool.getActiveCount()>0) return;
         var container = plugin.runtime();
         if (container == null || container.warzone() == null) return;
         var runtime = container.warzone().runtime();
@@ -59,8 +64,11 @@ public final class WebsiteExportService implements AutoCloseable {
         var duels = plugin.getServer().getPluginManager().getPlugin("WarzoneDuels");
         Method method = null;
         if (duels != null && duels.isEnabled()) {
-            try { method = duels.getClass().getMethod("websiteWeeklyWins", long.class, long.class); }
-            catch (ReflectiveOperationException ignored) { /* Optional public API absent. */ }
+            try { method = duels.getClass().getMethod("websiteWeeklyResults", long.class, long.class); }
+            catch (ReflectiveOperationException ignored) {
+                try { method=duels.getClass().getMethod("websiteWeeklyWins",long.class,long.class); }
+                catch(ReflectiveOperationException absent) { /* Optional API; retain unavailable status. */ }
+            }
         }
         Method reader = method;
         pending = CompletableFuture.supplyAsync(() -> {
@@ -70,7 +78,7 @@ public final class WebsiteExportService implements AutoCloseable {
                 catch (ReflectiveOperationException | RuntimeException ignored) { /* Fail closed. */ }
             }
             return gson.toJson(PublicWarzoneSnapshot.withLeaders(snapshot, leaders));
-        }).orTimeout(10, java.util.concurrent.TimeUnit.SECONDS).thenCompose(body -> {
+        },readerPool).orTimeout(10, java.util.concurrent.TimeUnit.SECONDS).thenCompose(body -> {
             if (closed) return CompletableFuture.failedFuture(new IllegalStateException("Exporter closed"));
             var request = WebsiteSignedExport.request(endpoint, secret, body, System.currentTimeMillis(), UUID.randomUUID().toString());
             return client.sendAsync(request, HttpResponse.BodyHandlers.discarding());
@@ -83,6 +91,7 @@ public final class WebsiteExportService implements AutoCloseable {
         closed = true;
         if (task != null) task.cancel();
         if (pending != null) pending.cancel(true);
+        if (readerPool != null) readerPool.shutdownNow();
         if (client != null) client.shutdownNow();
     }
 }

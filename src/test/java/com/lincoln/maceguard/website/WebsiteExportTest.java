@@ -56,4 +56,16 @@ class WebsiteExportTest {
         assertEquals(true,kit.get("manualOverride"));assertFalse(kit.containsKey("endsAt"));
         assertFalse(output.toString().contains("region"));
     }
+    @Test void completeWeeklyResultsPreserveExplicitWeekAndStripPrivateFields() {
+        String now="2026-10-13T16:00:00Z",week="2026-10-12T00:00:00Z";
+        var current=Map.<String,Object>of("generatedAt",now,"items",List.of(Map.of("id","current-meta","type","kit","name","Vanilla")));
+        var raw=Map.of("weekStartsAt",week,"generatedAt",now,"complete",true,
+                "items",List.of(Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",2,"opponent","private")));
+        var result=PublicWarzoneSnapshot.withLeaders(current,raw);
+        assertEquals(week,result.get("weekStartsAt"));
+        assertEquals(true,result.get("duelResultsComplete"));
+        assertFalse(result.toString().contains("private"));
+        var wrongWeek=new java.util.HashMap<String,Object>(raw);wrongWeek.put("weekStartsAt","2026-10-05T00:00:00Z");
+        assertTrue(PublicWarzoneSnapshot.withLeaders(current,wrongWeek).toString().contains("unavailable"));
+    }
 }

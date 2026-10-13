@@ -21,3 +21,40 @@ optional weekly-wins adapter. The existing captured preview is not automatic.
 SPEAR requirements/proof/implementation/verification are manual because no
 project-local EARS/state helpers were found. Test artifacts remain local and
 unmerged; canonical source/pins and live acceptance are separate requirements.
+
+## Live continuation, 13 October
+
+The publisher now prefers the bounded websiteWeeklyResults public API, retains
+legacy websiteWeeklyWins compatibility, and carries validated UTC week,
+results freshness and completeness metadata. Bad/previous-week exports remain
+unavailable. Optional Duels load ordering is explicit. A dedicated bounded reader
+executor and JDBC query timeout prevent timed-out queries from accumulating
+unbounded background work. Rotation capture remains on the game thread.
+
+Local clean Java 21 Maven verify passes: 539 tests, no failures/skips. An actual
+native H2 team-results DTO -> MaceGuard signer -> website signed ingest -> SQLite
+-> public feed check passes with a synthetic fixture, including replay rejection.
+No real match or HTTP production delivery is performed by that check.
+
+Activation needs merged exporter code and reconciled installed runtime lineage:
+server inspection shows 6.1.8-water-riptide-test.8, not the canonical version string.
+Preserve its water/riptide combat fixes in the merged runtime. Network pin main
+559bfabc currently uses MaceGuard e18093c and Duels 475d245; repin only to verified
+merged commits and build through the network path after review.
+
+Operator configuration after those gates:
+
+```yaml
+# plugins/MaceGuard/website-export.yml
+enabled: true
+endpoint: "https://enthusia.info/api/community/ingest"
+secret-environment-variable: "COMMUNITY_INGEST_SECRET"
+interval-seconds: 300
+```
+
+Supply the matching website ingest secret through the server environment; never
+commit it, put it in this YAML or send it in chat. The existing encrypted Cloudflare
+secret cannot be read back. An operator must supply the existing value or explicitly
+coordinate a secure rotation on both sides. Then restart the verified runtime and
+check two consecutive signed deliveries plus a real counted duel result. Rollback:
+disable this exporter and restart; do not change rotation/gameplay settings.
