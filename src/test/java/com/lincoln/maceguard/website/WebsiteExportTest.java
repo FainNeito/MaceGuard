@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class WebsiteExportTest {
-    private static final String ITEMS="items",PRIVATE_VALUE="private";
-    private final Map<String,Object> rotation=Map.of("kind","warzone",ITEMS,List.of(Map.of("id","current-meta","type","kit","name","Vanilla")));
+    private static final String ITEMS="items",NAME="name",PRIVATE_VALUE="private";
+    private final Map<String,Object> rotation=Map.of("kind","warzone",ITEMS,List.of(Map.of("id","current-meta","type","kit",NAME,"Vanilla")));
     @Test void exactJavaSigningMatchesIndependentNodeHmacFixture() {
         var target=WebsiteSignedExport.endpoint("https://enthusia.info/api/community/ingest");
         var request=WebsiteSignedExport.request(target,"k".repeat(32),"{}",1791820800000L,"0123456789abcdef");
@@ -33,9 +33,9 @@ class WebsiteExportTest {
         assertFalse(PublicWarzoneSnapshot.withLeaders(rotation,null).toString().contains("type=leader"));
         assertTrue(PublicWarzoneSnapshot.withLeaders(rotation,null).toString().contains("unavailable"));
         assertTrue(PublicWarzoneSnapshot.withLeaders(rotation,List.of()).toString().contains("No counted"));
-        var row=Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",1.5,"ip",PRIVATE_VALUE);
+        var row=Map.of("id","00000000-0000-0000-0000-000000000001",NAME,"Player","wins",1.5,"ip",PRIVATE_VALUE);
         assertTrue(PublicWarzoneSnapshot.withLeaders(rotation,List.of(row)).toString().contains("unavailable"));
-        var valid=Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",7,"opponent",PRIVATE_VALUE);
+        var valid=Map.of("id","00000000-0000-0000-0000-000000000001",NAME,"Player","wins",7,"opponent",PRIVATE_VALUE);
         var result=PublicWarzoneSnapshot.withLeaders(rotation,List.of(valid));
         assertTrue(result.toString().contains("wins=7"));assertFalse(result.toString().contains(PRIVATE_VALUE));
     }
@@ -59,9 +59,9 @@ class WebsiteExportTest {
     }
     @Test void completeWeeklyResultsPreserveExplicitWeekAndStripPrivateFields() {
         String now="2026-10-13T16:00:00Z",week="2026-10-12T00:00:00Z";
-        var current=Map.<String,Object>of("generatedAt",now,ITEMS,List.of(Map.of("id","current-meta","type","kit","name","Vanilla")));
+        var current=Map.<String,Object>of("generatedAt",now,ITEMS,List.of(Map.of("id","current-meta","type","kit",NAME,"Vanilla")));
         var raw=Map.of("weekStartsAt",week,"generatedAt",now,"complete",true,
-                ITEMS,List.of(Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",2,"opponent",PRIVATE_VALUE)));
+                ITEMS,List.of(Map.of("id","00000000-0000-0000-0000-000000000001",NAME,"Player","wins",2,"opponent",PRIVATE_VALUE)));
         var result=PublicWarzoneSnapshot.withLeaders(current,raw);
         assertEquals(week,result.get("weekStartsAt"));
         assertEquals(true,result.get("duelResultsComplete"));

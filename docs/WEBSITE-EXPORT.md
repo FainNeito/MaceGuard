@@ -58,3 +58,11 @@ secret cannot be read back. An operator must supply the existing value or explic
 coordinate a secure rotation on both sides. Then restart the verified runtime and
 check two consecutive signed deliveries plus a real counted duel result. Rollback:
 disable this exporter and restart; do not change rotation/gameplay settings.
+
+Hosted review checkpoint: complexity, result-null and duplicated-field findings
+were repaired without suppressions. The remaining annotations are Java EE thread
+rules applied to a Paper plugin, three thread-confined map builders, and one
+unchanged ConfigLoaderTest baseline string. Builders are published as immutable
+snapshots; they are not concurrently mutated stores. A maintainer must review
+these context dispositions or align the analyzer runtime; no clean Codacy grade
+or hosted test success is claimed.
