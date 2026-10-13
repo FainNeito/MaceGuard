@@ -14,7 +14,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class WebsiteExportTest {
-    private final Map<String,Object> rotation=Map.of("kind","warzone","items",List.of(Map.of("id","current-meta","type","kit","name","Vanilla")));
+    private static final String ITEMS="items",PRIVATE_VALUE="private";
+    private final Map<String,Object> rotation=Map.of("kind","warzone",ITEMS,List.of(Map.of("id","current-meta","type","kit","name","Vanilla")));
     @Test void exactJavaSigningMatchesIndependentNodeHmacFixture() {
         var target=WebsiteSignedExport.endpoint("https://enthusia.info/api/community/ingest");
         var request=WebsiteSignedExport.request(target,"k".repeat(32),"{}",1791820800000L,"0123456789abcdef");
@@ -32,11 +33,11 @@ class WebsiteExportTest {
         assertFalse(PublicWarzoneSnapshot.withLeaders(rotation,null).toString().contains("type=leader"));
         assertTrue(PublicWarzoneSnapshot.withLeaders(rotation,null).toString().contains("unavailable"));
         assertTrue(PublicWarzoneSnapshot.withLeaders(rotation,List.of()).toString().contains("No counted"));
-        var row=Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",1.5,"ip","private");
+        var row=Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",1.5,"ip",PRIVATE_VALUE);
         assertTrue(PublicWarzoneSnapshot.withLeaders(rotation,List.of(row)).toString().contains("unavailable"));
-        var valid=Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",7,"opponent","private");
+        var valid=Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",7,"opponent",PRIVATE_VALUE);
         var result=PublicWarzoneSnapshot.withLeaders(rotation,List.of(valid));
-        assertTrue(result.toString().contains("wins=7"));assertFalse(result.toString().contains("private"));
+        assertTrue(result.toString().contains("wins=7"));assertFalse(result.toString().contains(PRIVATE_VALUE));
     }
     @Test void weeksUseUtcMondayAndNotTheRotationTimezone() {
         assertEquals(Instant.parse("2026-10-05T00:00:00Z").toEpochMilli(),PublicWarzoneSnapshot.weekStart(Instant.parse("2026-10-11T23:59:59Z").toEpochMilli()));
@@ -52,19 +53,19 @@ class WebsiteExportTest {
         when(manager.activeSelection()).thenReturn(new ActiveSelection(SelectionSourceType.CUSTOM_OVERRIDE,null,
                 new WarzoneConfig.ActiveSet(List.of("elytra-no-rockets"),"Elytra, No Rockets","Rocket boosts blocked",Set.of(),Map.of()),true));
         var output=PublicWarzoneSnapshot.capture(runtime,Instant.parse("2026-10-12T18:00:00Z").toEpochMilli());
-        var kit=(Map<?,?>)((List<?>)output.get("items")).getFirst();
+        var kit=(Map<?,?>)((List<?>)output.get(ITEMS)).getFirst();
         assertEquals(true,kit.get("manualOverride"));assertFalse(kit.containsKey("endsAt"));
         assertFalse(output.toString().contains("region"));
     }
     @Test void completeWeeklyResultsPreserveExplicitWeekAndStripPrivateFields() {
         String now="2026-10-13T16:00:00Z",week="2026-10-12T00:00:00Z";
-        var current=Map.<String,Object>of("generatedAt",now,"items",List.of(Map.of("id","current-meta","type","kit","name","Vanilla")));
+        var current=Map.<String,Object>of("generatedAt",now,ITEMS,List.of(Map.of("id","current-meta","type","kit","name","Vanilla")));
         var raw=Map.of("weekStartsAt",week,"generatedAt",now,"complete",true,
-                "items",List.of(Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",2,"opponent","private")));
+                ITEMS,List.of(Map.of("id","00000000-0000-0000-0000-000000000001","name","Player","wins",2,"opponent",PRIVATE_VALUE)));
         var result=PublicWarzoneSnapshot.withLeaders(current,raw);
         assertEquals(week,result.get("weekStartsAt"));
         assertEquals(true,result.get("duelResultsComplete"));
-        assertFalse(result.toString().contains("private"));
+        assertFalse(result.toString().contains(PRIVATE_VALUE));
         var wrongWeek=new java.util.HashMap<String,Object>(raw);wrongWeek.put("weekStartsAt","2026-10-05T00:00:00Z");
         assertTrue(PublicWarzoneSnapshot.withLeaders(current,wrongWeek).toString().contains("unavailable"));
     }

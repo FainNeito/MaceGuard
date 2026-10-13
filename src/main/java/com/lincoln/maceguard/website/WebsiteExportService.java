@@ -3,6 +3,7 @@ package com.lincoln.maceguard.website;
 import com.google.gson.Gson;
 import com.lincoln.maceguard.MaceGuardPlugin;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import java.io.File;
 import java.lang.reflect.Method;
@@ -11,87 +12,102 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.*;
 
-/** Game state is captured by a sync task; database/network work runs off-thread. */
+/** Game state is captured synchronously; database/network work stays off-thread. */
 public final class WebsiteExportService implements AutoCloseable {
     private final MaceGuardPlugin plugin;
-    private final Gson gson = new Gson();
+    private final Gson gson=new Gson();
     private volatile boolean closed;
     private BukkitTask task;
     private CompletableFuture<?> pending;
     private HttpClient client;
-    private java.util.concurrent.ThreadPoolExecutor readerPool;
+    private ThreadPoolExecutor readerPool;
     private URI endpoint;
     private String secret;
-    public WebsiteExportService(MaceGuardPlugin plugin) { this.plugin = plugin; }
+    public WebsiteExportService(MaceGuardPlugin plugin) { this.plugin=plugin; }
     public void start() {
-        File file = new File(plugin.getDataFolder(), "website-export.yml");
         try {
-            if (!file.exists()) plugin.saveResource("website-export.yml", false);
-            var settings = new YamlConfiguration(); settings.load(file);
-            if (!settings.getBoolean("enabled", false)) return;
-            endpoint = WebsiteSignedExport.endpoint(settings.getString("endpoint", ""));
-            String variable = settings.getString("secret-environment-variable", "COMMUNITY_INGEST_SECRET");
-            if (!variable.matches("[A-Za-z_][A-Za-z0-9_]*")) throw new IllegalArgumentException();
-            secret = System.getenv(variable);
-            if (secret == null || secret.length() < 32) throw new IllegalArgumentException();
-            int seconds = settings.getInt("interval-seconds", 300);
-            if (seconds < 60 || seconds > 3600) throw new IllegalArgumentException();
-            client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
-                    .followRedirects(HttpClient.Redirect.NEVER).build();
-            readerPool = new java.util.concurrent.ThreadPoolExecutor(1,1,0L,java.util.concurrent.TimeUnit.SECONDS,
-                    new java.util.concurrent.ArrayBlockingQueue<>(1),work -> {
-                        Thread thread=new Thread(work,"maceguard-website-reader");thread.setDaemon(true);return thread;
-                    });
-            task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::publish, 20L, seconds * 20L);
-        } catch (Exception error) {
+            var settings=readSettings();
+            if(!settings.getBoolean("enabled",false))return;
+            int seconds=configure(settings);
+            client=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
+            readerPool=new ThreadPoolExecutor(1,1,0L,TimeUnit.SECONDS,new ArrayBlockingQueue<>(1),this::workerThread);
+            task=plugin.getServer().getScheduler().runTaskTimer(plugin,this::publish,20L,seconds*20L);
+        } catch(Exception error) {
             plugin.getLogger().warning("Website export disabled; check configuration and its secret environment variable.");
             close();
         }
     }
+    private YamlConfiguration readSettings() throws Exception {
+        File file=new File(plugin.getDataFolder(),"website-export.yml");
+        if(!file.exists())plugin.saveResource("website-export.yml",false);
+        var settings=new YamlConfiguration();settings.load(file);return settings;
+    }
+    private int configure(YamlConfiguration settings) {
+        endpoint=WebsiteSignedExport.endpoint(settings.getString("endpoint",""));
+        String variable=settings.getString("secret-environment-variable","COMMUNITY_INGEST_SECRET");
+        if(!variable.matches("[A-Za-z_][A-Za-z0-9_]*"))throw new IllegalArgumentException("Invalid environment variable");
+        secret=System.getenv(variable);
+        if(secret==null||secret.length()<32)throw new IllegalArgumentException("Missing signing secret");
+        int seconds=settings.getInt("interval-seconds",300);
+        if(seconds<60||seconds>3600)throw new IllegalArgumentException("Invalid export interval");
+        return seconds;
+    }
+    private Thread workerThread(Runnable work) {
+        Thread thread=new Thread(work,"maceguard-website-reader");thread.setDaemon(true);return thread;
+    }
+    private boolean busy() {
+        return closed||pending!=null&&!pending.isDone()||readerPool.getActiveCount()>0;
+    }
     private void publish() {
-        if (closed || pending != null && !pending.isDone() || readerPool.getActiveCount()>0) return;
-        var container = plugin.runtime();
-        if (container == null || container.warzone() == null) return;
-        var runtime = container.warzone().runtime();
-        if (runtime == null || !runtime.config().enabled() || !runtime.region().fullyResolved()) return;
-        long now = System.currentTimeMillis(), week = PublicWarzoneSnapshot.weekStart(now);
-        Map<String, Object> snapshot;
-        try { snapshot = PublicWarzoneSnapshot.capture(runtime, now); }
-        catch (RuntimeException error) { plugin.getLogger().warning("Website rotation capture unavailable."); return; }
-        var duels = plugin.getServer().getPluginManager().getPlugin("WarzoneDuels");
-        Method method = null;
-        if (duels != null && duels.isEnabled()) {
-            try { method = duels.getClass().getMethod("websiteWeeklyResults", long.class, long.class); }
-            catch (ReflectiveOperationException ignored) {
-                try { method=duels.getClass().getMethod("websiteWeeklyWins",long.class,long.class); }
-                catch(ReflectiveOperationException absent) { /* Optional API; retain unavailable status. */ }
-            }
-        }
-        Method reader = method;
-        pending = CompletableFuture.supplyAsync(() -> {
-            Object leaders = null;
-            if (reader != null) {
-                try { leaders = reader.invoke(duels, week, now + 1); }
-                catch (ReflectiveOperationException | RuntimeException ignored) { /* Fail closed. */ }
-            }
-            return gson.toJson(PublicWarzoneSnapshot.withLeaders(snapshot, leaders));
-        },readerPool).orTimeout(10, java.util.concurrent.TimeUnit.SECONDS).thenCompose(body -> {
-            if (closed) return CompletableFuture.failedFuture(new IllegalStateException("Exporter closed"));
-            var request = WebsiteSignedExport.request(endpoint, secret, body, System.currentTimeMillis(), UUID.randomUUID().toString());
-            return client.sendAsync(request, HttpResponse.BodyHandlers.discarding());
-        }).whenComplete((response, error) -> {
-            if (!closed && (error != null || response.statusCode() < 200 || response.statusCode() >= 300))
-                plugin.getLogger().warning("Website export delivery failed; retrying on the next interval.");
-        });
+        if(busy())return;
+        long now=System.currentTimeMillis();
+        var snapshot=captureRotation(now);
+        if(snapshot.isEmpty())return;
+        var duels=plugin.getServer().getPluginManager().getPlugin("WarzoneDuels");
+        var reader=duelReader(duels);
+        pending=CompletableFuture.supplyAsync(()->gson.toJson(PublicWarzoneSnapshot.withLeaders(
+                snapshot.get(),readDuelResults(duels,reader,now).orElse(null))),readerPool)
+                .orTimeout(10,TimeUnit.SECONDS).thenCompose(this::sendBody).whenComplete(this::deliveryComplete);
+    }
+    private Optional<Map<String,Object>> captureRotation(long now) {
+        var container=plugin.runtime();
+        if(container==null||container.warzone()==null)return Optional.empty();
+        var runtime=container.warzone().runtime();
+        if(runtime==null||!runtime.config().enabled()||!runtime.region().fullyResolved())return Optional.empty();
+        try { return Optional.of(PublicWarzoneSnapshot.capture(runtime,now)); }
+        catch(RuntimeException error) { plugin.getLogger().warning("Website rotation capture unavailable.");return Optional.empty(); }
+    }
+    private Optional<Method> duelReader(Plugin duels) {
+        if(duels==null||!duels.isEnabled())return Optional.empty();
+        return findReader(duels,"websiteWeeklyResults").or(()->findReader(duels,"websiteWeeklyWins"));
+    }
+    private Optional<Method> findReader(Plugin duels,String name) {
+        try { return Optional.of(duels.getClass().getMethod(name,long.class,long.class)); }
+        catch(ReflectiveOperationException absent) { return Optional.empty(); }
+    }
+    private Optional<Object> readDuelResults(Plugin duels,Optional<Method> reader,long now) {
+        if(reader.isEmpty())return Optional.empty();
+        try { return Optional.ofNullable(reader.get().invoke(duels,PublicWarzoneSnapshot.weekStart(now),now+1)); }
+        catch(ReflectiveOperationException|RuntimeException unavailable) { return Optional.empty(); }
+    }
+    private CompletableFuture<HttpResponse<Void>> sendBody(String body) {
+        if(closed)return CompletableFuture.failedFuture(new IllegalStateException("Exporter closed"));
+        var request=WebsiteSignedExport.request(endpoint,secret,body,System.currentTimeMillis(),UUID.randomUUID().toString());
+        return client.sendAsync(request,HttpResponse.BodyHandlers.discarding());
+    }
+    private void deliveryComplete(HttpResponse<Void> response,Throwable error) {
+        if(!closed&&(error!=null||response.statusCode()<200||response.statusCode()>=300))
+            plugin.getLogger().warning("Website export delivery failed; retrying on the next interval.");
     }
     @Override public void close() {
-        closed = true;
-        if (task != null) task.cancel();
-        if (pending != null) pending.cancel(true);
-        if (readerPool != null) readerPool.shutdownNow();
-        if (client != null) client.shutdownNow();
+        closed=true;
+        if(task!=null)task.cancel();
+        if(pending!=null)pending.cancel(true);
+        if(readerPool!=null)readerPool.shutdownNow();
+        if(client!=null)client.shutdownNow();
     }
 }
