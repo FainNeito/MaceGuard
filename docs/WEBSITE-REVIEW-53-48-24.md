@@ -35,3 +35,8 @@ public Warzone feed passes, including replay denial, with synthetic records.
 This checkout has no project EARS validator or SPEAR state helper; this document
 records the scaled requirements and evidence. No runtime delivery, production
 activation or actual player match is claimed.
+
+Hosted Codacy at 360c73f confirms the original nine annotations are gone; three
+new method-level synchronization style findings were then repaired with explicit
+monitor blocks preserving the same lifecycle semantics. Re-run the lifecycle
+and full verification checks and inspect the exact updated hosted head.
