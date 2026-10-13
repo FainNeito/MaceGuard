@@ -8,9 +8,10 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class PublicWarzoneSnapshot {
     private static final String TYPE="type",NAME="name",DESCRIPTION="description",ITEMS="items";
@@ -19,16 +20,15 @@ public final class PublicWarzoneSnapshot {
         RotationManager rotation = runtime.rotations();
         var selection = rotation.activeSelection();
         var active = selection.activeSet();
-        Map<String, Object> kit = new LinkedHashMap<>();
-        kit.put("id", "current-meta"); kit.put(TYPE, "kit");
-        kit.put(NAME, bounded(runtime.messages().plain(active.displayName()), 80));
-        kit.put(DESCRIPTION, bounded(runtime.messages().plain(active.description()), 2000));
-        kit.put("manualOverride", selection.manualOverride());
+        Map<String, Object> kit = Map.of("id", "current-meta", TYPE, "kit",
+                NAME, bounded(runtime.messages().plain(active.displayName()), 80),
+                DESCRIPTION, bounded(runtime.messages().plain(active.description()), 2000),
+                "manualOverride", selection.manualOverride());
         boolean indefinite = rotation.state().overrideActive()
                 && rotation.state().overrideDurationMode() == OverrideDurationMode.UNTIL_CLEARED;
         if (!indefinite && (rotation.scheduleEnabled()
                 || rotation.state().overrideActive() && rotation.state().overrideExpiresAtMillis() > 0)) {
-            kit.put("endsAt", Instant.ofEpochMilli(rotation.nextEffectiveTransitionMillis()).toString());
+            kit = withFields(kit, Map.of("endsAt", Instant.ofEpochMilli(rotation.nextEffectiveTransitionMillis()).toString()));
         }
         var next = Map.<String, Object>of("id", "next-meta", TYPE, "activity",
                 NAME, bounded(runtime.messages().plain(nextName(rotation, indefinite)), 80), DESCRIPTION, "");
@@ -59,11 +59,12 @@ public final class PublicWarzoneSnapshot {
         var leaders=leaderRows(raw,metadata);
         leaders.ifPresent(rows::addAll);
         rows.add(Map.of("id","duels-status",TYPE,"activity",NAME,"Weekly duel wins",DESCRIPTION,duelStatus(leaders)));
-        Map<String,Object> result=new LinkedHashMap<>(rotation);
-        result.put(ITEMS,List.copyOf(rows));
-        if(leaders.isPresent())result.putAll(metadata);
-        result.put("source","server_export");
-        return Map.copyOf(result);
+        var result=leaders.isPresent()?withFields(rotation,metadata):rotation;
+        return withFields(result,Map.of(ITEMS,List.copyOf(rows),"source","server_export"));
+    }
+    private static Map<String,Object> withFields(Map<String,Object> original,Map<String,Object> fields) {
+        return Stream.concat(original.entrySet().stream(),fields.entrySet().stream())
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,Map.Entry::getValue,(old,value)->value));
     }
     private static List<Map<String,Object>> copyRotationItems(Map<String,Object> rotation) {
         var rows=new ArrayList<Map<String,Object>>();
@@ -72,9 +73,8 @@ public final class PublicWarzoneSnapshot {
     }
     private static Map<String,Object> copyItem(Object item) {
         if(!(item instanceof Map<?,?> map))throw new IllegalArgumentException("Invalid rotation");
-        Map<String,Object> copy=new LinkedHashMap<>();
-        map.forEach((key,value)->copy.put(key.toString(),value));
-        return Map.copyOf(copy);
+        return map.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+                entry->entry.getKey().toString(),Map.Entry::getValue,(old,value)->value));
     }
     private static String duelStatus(java.util.Optional<List<Map<String,Object>>> leaders) {
         if(leaders.isEmpty())return "Weekly WarzoneDuels results are unavailable.";

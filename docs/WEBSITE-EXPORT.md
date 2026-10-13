@@ -27,11 +27,11 @@ unmerged; canonical source/pins and live acceptance are separate requirements.
 The publisher now prefers the bounded websiteWeeklyResults public API, retains
 legacy websiteWeeklyWins compatibility, and carries validated UTC week,
 results freshness and completeness metadata. Bad/previous-week exports remain
-unavailable. Optional Duels load ordering is explicit. A dedicated bounded reader
-executor and JDBC query timeout prevent timed-out queries from accumulating
+unavailable. Optional Duels load ordering is explicit. A bounded, Paper-scheduled
+asynchronous reader and JDBC query timeout prevent timed-out queries from accumulating
 unbounded background work. Rotation capture remains on the game thread.
 
-Local clean Java 21 Maven verify passes: 539 tests, no failures/skips. An actual
+Local clean Java 21 Maven verify passes: 544 tests, no failures/skips. An actual
 native H2 team-results DTO -> MaceGuard signer -> website signed ingest -> SQLite
 -> public feed check passes with a synthetic fixture, including replay rejection.
 No real match or HTTP production delivery is performed by that check.
@@ -59,10 +59,10 @@ coordinate a secure rotation on both sides. Then restart the verified runtime an
 check two consecutive signed deliveries plus a real counted duel result. Rollback:
 disable this exporter and restart; do not change rotation/gameplay settings.
 
-Hosted review checkpoint: complexity, result-null and duplicated-field findings
-were repaired without suppressions. The remaining annotations are Java EE thread
-rules applied to a Paper plugin, three thread-confined map builders, and one
-unchanged ConfigLoaderTest baseline string. Builders are published as immutable
-snapshots; they are not concurrently mutated stores. A maintainer must review
-these context dispositions or align the analyzer runtime; no clean Codacy grade
-or hosted test success is claimed.
+Review follow-up: replace private unmanaged worker threads with Paper-owned
+asynchronous tasks and a single-read lifecycle gate. A timeout/cancellation cannot
+release a still-running query or deliver its late result. Close cancels queued
+results and rejects new work. All snapshot maps are constructed immutably, and
+the repeated ConfigLoaderTest line-ending literal has a named constant. No
+analyzer rules are suppressed. See WEBSITE-REVIEW-53-48-24.md for verification;
+hosted plugin test execution still requires maintainer workflow approval.

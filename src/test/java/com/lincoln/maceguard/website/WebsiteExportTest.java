@@ -38,6 +38,9 @@ class WebsiteExportTest {
         var valid=Map.of("id","00000000-0000-0000-0000-000000000001",NAME,"Player","wins",7,"opponent",PRIVATE_VALUE);
         var result=PublicWarzoneSnapshot.withLeaders(rotation,List.of(valid));
         assertTrue(result.toString().contains("wins=7"));assertFalse(result.toString().contains(PRIVATE_VALUE));
+        assertThrows(UnsupportedOperationException.class,()->result.remove(ITEMS));
+        var copied=(Map<?,?>)((List<?>)result.get(ITEMS)).getFirst();
+        assertThrows(UnsupportedOperationException.class,()->copied.remove(NAME));
     }
     @Test void weeksUseUtcMondayAndNotTheRotationTimezone() {
         assertEquals(Instant.parse("2026-10-05T00:00:00Z").toEpochMilli(),PublicWarzoneSnapshot.weekStart(Instant.parse("2026-10-11T23:59:59Z").toEpochMilli()));
@@ -55,6 +58,7 @@ class WebsiteExportTest {
         var output=PublicWarzoneSnapshot.capture(runtime,Instant.parse("2026-10-12T18:00:00Z").toEpochMilli());
         var kit=(Map<?,?>)((List<?>)output.get(ITEMS)).getFirst();
         assertEquals(true,kit.get("manualOverride"));assertFalse(kit.containsKey("endsAt"));
+        assertThrows(UnsupportedOperationException.class,()->kit.remove(NAME));
         assertFalse(output.toString().contains("region"));
     }
     @Test void completeWeeklyResultsPreserveExplicitWeekAndStripPrivateFields() {
