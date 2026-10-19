@@ -2,6 +2,15 @@
 
 ## Local evidence
 
+### SMP Test native Lunge acceptance, 2026-10-19
+
+- User restarted Test after staging and requested client testing. Downloaded installed JAR matches exact gameplay source `27008e1e33cd40ec1eb801774ea753f8fc7beddb`, SHA-256 `437b88d7921126a7b641840f2a612609b97f3212f46d20ee01244148fc87e57e`; update directory is empty. Fresh startup enables MaceGuard 6.1.8 with active gameplay and CombatLogX integration on Paper 26.2 build 128.
+- Actual FainNeito client left-click Lunge I Jabs passed inside and outside effective Warzone. Inside bar visibly refreshed 15 to 30 seconds. Outside a seeded 15-second tag remained at 18 seconds after the Jab beyond its original expiry. A separate outside run while Warzone `no-lunge` remained active refreshed the ordinary bar 14 to 29; no Warzone latch was carried into that run.
+- Disabled inside Lunge was suppressed in item NBT; attempted Jab did not move the player or damage the spear, and timer counted 19 to 15 to 6. With the ten-second cooldown modifier, a ready Lunge refreshed to 30, a repeat during cooldown did not refresh (26 then 16), and a Jab after expiry refreshed 16 to 30. Only one combat boss bar was visible in each observed state.
+- These are bounded item-action acceptance tests using console-seeded existing tags, not natural PvP acquisition or two-player damage tests. Cancellation/lifecycle/legacy API cases remain local-test evidence. No source behavior changed in this documentation update, so no additional engine implementation or build was required; the existing gameplay build passed 658 tests. EARS/state helpers remain absent; manual records updated.
+- Cleanup verified exact inventory NBT equality, original position/rotation/mode/abilities/selected slot, food/health, removal of the Test-only bypass node and combat, and automatic vanilla/no manual modifier override. Both 289-block glass platforms and eight temporary force-loaded chunks were removed. No new death, restart/reload or production change occurred during acceptance. The tested unmerged build remains on SMP Test.
+- Separate pre-existing runtime issue persists: CombatLogX's SuperVanish expansion throws missing `de/myzelyam/api/vanish/VanishAPI` during pre-tag. Successful timer refreshes still occurred; this run did not repair that integration. Full screenshots and timestamped extracts are recorded in the local `artifacts/maceguard-test-review-20261019/NATIVE-LUNGE-CLIENT-ACCEPTANCE.md` receipt. Hosted checks and canonical merge/release remain separate.
+
 ### Native Lunge recognition repair, 2026-10-19
 
 - Spec: MG-WZ-12A follows failed client acceptance of head `11ae010`: real Lunge I Jabs moved the player and consumed spear durability, but existing combat timers did not refresh inside or outside Warzone. Wind-charge refresh passed separately. Those observations establish a live failure, not an instrumented proof of which packet/readiness gate rejected the Jab.

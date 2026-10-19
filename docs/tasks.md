@@ -31,7 +31,8 @@ Local EARS/state helpers are absent. Requirements and these task/evidence record
 ## Lunge combat retag follow-up
 
 - [x] MG-WZ-12A source/local: Replace arm-swing inference with optional native Paper Lunge recognition; cover cancelled/zero-power events, duplicate swing routing, restrictions, scope capture and runtime lifetime. Canonical Java 21 clean verification: 658 tests passed.
-- [ ] MG-WZ-12A hosted/client: Inspect exact-head hosted checks and repeat real Lunge retag acceptance inside/outside after separately authorized activation. No server activation was performed for this repair.
+- [x] MG-WZ-12A client: After the user's Test restart, verified the exact installed hash and real FainNeito client Jabs: inside/outside retag, disabled exclusion, outside scope isolation, cooldown repeat exclusion and expiry recovery all passed. Original player state and temporary setup restored; see verification evidence.
+- [ ] MG-WZ-12A hosted: Complete hosted approval/checks and canonical integration before any production release. Client acceptance does not replace these gates.
 
 - [x] MG-REVIEW-01 source: Address the 29 confirmed #46 findings, 12 potential findings, and #47 fixture-length finding. See review-findings.md for dispositions. Local regression checks pass; hosted approval/integration remain separate.
 - [ ] MG-REVIEW-01 hosted: Refresh final-head Codacy and Actions checks, then verify the integrated #46 candidate before merge/release.
