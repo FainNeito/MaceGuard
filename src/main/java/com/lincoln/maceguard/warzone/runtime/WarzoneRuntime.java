@@ -404,7 +404,11 @@ public final class WarzoneRuntime {
     public CombatScopeService combatScopes() { return combatScopes; }
 
     public void retagAcceptedLunge(Player player) {
-        combatRetagListener.onAcceptedLunge(player, appliesAt(player.getLocation()));
+        retagAcceptedLunge(player, appliesAt(player.getLocation()));
+    }
+
+    public void retagAcceptedLunge(Player player, boolean insideWarzone) {
+        combatRetagListener.onAcceptedLunge(player, insideWarzone);
     }
 
     private boolean windChargeEnabled(Player player) {

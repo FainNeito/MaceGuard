@@ -30,6 +30,9 @@ Local EARS/state helpers are absent. Requirements and these task/evidence record
 | MG-WZ-10/11 | spec/prove/engine/arch/refine | Fix initial WorldGuard water right-click routing and separate flint item-use result | Two regressions reproduced; focused 36 and full 604 tests pass; PR CI and live acceptance pending |
 ## Lunge combat retag follow-up
 
+- [x] MG-WZ-12A source/local: Replace arm-swing inference with optional native Paper Lunge recognition; cover cancelled/zero-power events, duplicate swing routing, restrictions, scope capture and runtime lifetime. Canonical Java 21 clean verification: 658 tests passed.
+- [ ] MG-WZ-12A hosted/client: Inspect exact-head hosted checks and repeat real Lunge retag acceptance inside/outside after separately authorized activation. No server activation was performed for this repair.
+
 - [x] MG-REVIEW-01 source: Address the 29 confirmed #46 findings, 12 potential findings, and #47 fixture-length finding. See review-findings.md for dispositions. Local regression checks pass; hosted approval/integration remain separate.
 - [ ] MG-REVIEW-01 hosted: Refresh final-head Codacy and Actions checks, then verify the integrated #46 candidate before merge/release.
 
