@@ -137,11 +137,15 @@ public final class AttributeSwapRestrictionListener implements Listener {
         if (spear.denied() || lunge.denied()) return;
         boolean insideWarzone = runtime.appliesAt(player.getLocation());
         // Observe the final cancellation/power after all handlers have finished dispatching.
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (authoritativeRuntime() != runtime || !player.isOnline() || !accepted.getAsBoolean()) return;
-            if (lunge.startsCooldownAfterSuccess()) finalizeObservedLunge(runtime, player, lunge);
-            runtime.retagAcceptedLunge(player, insideWarzone);
-        });
+        plugin.getServer().getScheduler().runTask(plugin,
+                () -> completeNativeLunge(runtime, player, lunge, insideWarzone, accepted));
+    }
+
+    private void completeNativeLunge(WarzoneRuntime runtime, Player player, RestrictionDecision lunge,
+                                      boolean insideWarzone, BooleanSupplier accepted) {
+        if (authoritativeRuntime() != runtime || !player.isOnline() || !accepted.getAsBoolean()) return;
+        if (lunge.startsCooldownAfterSuccess()) finalizeObservedLunge(runtime, player, lunge);
+        runtime.retagAcceptedLunge(player, insideWarzone);
     }
 
     private boolean eligibleNativeLunge(Player player) {

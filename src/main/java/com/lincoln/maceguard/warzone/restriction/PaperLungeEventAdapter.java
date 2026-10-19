@@ -20,8 +20,8 @@ final class PaperLungeEventAdapter {
     static boolean register(JavaPlugin plugin, Listener owner,
                             BiConsumer<Player, BooleanSupplier> handler) {
         try {
-            Class<?> type = Class.forName("io.papermc.paper.event.entity.EntityLungeEvent",
-                    false, plugin.getClass().getClassLoader());
+            // Class.forName uses this adapter's defining loader, which can see Paper's provided API.
+            Class<?> type = Class.forName("io.papermc.paper.event.entity.EntityLungeEvent");
             register(plugin, owner, type.asSubclass(Event.class), handler);
             return true;
         } catch (ClassNotFoundException absentOnOlderPaper) {

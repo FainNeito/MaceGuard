@@ -2,6 +2,12 @@
 
 ## Local evidence
 
+### Production-readiness follow-up, 2026-10-19
+
+- Spec/prove: exact-head Codacy annotations identified `onLunge` complexity 10 against a limit of 8, and the J2EE class-loader rule on `plugin.getClass().getClassLoader()`. These are hosted static-analysis findings, not new gameplay failures. The user authorized the remaining release preparation and Test acceptance while explicitly excluding SuperVanish repair; production upload/activation remains out of scope.
+- Engine/architecture: extracted deferred native completion without moving any eligibility, cancellation, scope, cooldown or runtime checks. The one-argument `Class.forName` resolves through this adapter's defining plugin loader, preserving access to Paper's provided API and legacy absence fallback without using an unrelated thread-context loader.
+- Refine: canonical Java 21 Maven-wrapper clean verification passed 658 tests, zero failures/errors/skips; local measured complexity is 6 for `onLunge` and 5 for completion. Existing native/legacy adapter and cancellation/lifecycle regressions pass. No quality threshold was changed. Exact-head hosted confirmation and remaining live Test acceptance are tracked separately.
+
 ### SMP Test native Lunge acceptance, 2026-10-19
 
 - User restarted Test after staging and requested client testing. Downloaded installed JAR matches exact gameplay source `27008e1e33cd40ec1eb801774ea753f8fc7beddb`, SHA-256 `437b88d7921126a7b641840f2a612609b97f3212f46d20ee01244148fc87e57e`; update directory is empty. Fresh startup enables MaceGuard 6.1.8 with active gameplay and CombatLogX integration on Paper 26.2 build 128.
