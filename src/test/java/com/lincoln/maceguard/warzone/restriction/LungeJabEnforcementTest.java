@@ -115,14 +115,12 @@ class LungeJabEnforcementTest {
         harness.listener.onLunge(harness.player, () -> true);
         assertFalse(harness.cooldowns.active(harness.playerId, RestrictionTarget.SPEAR_LUNGE));
         harness.nextTick.get().run();
-        harness.nextTick.get().run();
         assertTrue(harness.cooldowns.active(harness.playerId, RestrictionTarget.SPEAR_LUNGE));
     }
 
     @Test void pendingCooldownCannotCrossIntoReplacementRuntime() {
         Harness harness = harness(RestrictionMode.COOLDOWN, Duration.ofSeconds(5));
-        harness.listener.onLunge(harness.player, () -> true);
-        harness.nextTick.get().run();
+        harness.listener.onArmSwing(harness.swing);
         WarzoneRuntime replacement = mock(WarzoneRuntime.class);
         when(harness.plugin.runtime().warzone().runtime()).thenReturn(replacement);
         harness.nextTick.get().run();

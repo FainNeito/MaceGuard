@@ -139,7 +139,7 @@ public final class AttributeSwapRestrictionListener implements Listener {
         // Observe the final cancellation/power after all handlers have finished dispatching.
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (authoritativeRuntime() != runtime || !player.isOnline() || !accepted.getAsBoolean()) return;
-            scheduleLungeCooldown(runtime, player, lunge);
+            if (lunge.startsCooldownAfterSuccess()) finalizeObservedLunge(runtime, player, lunge);
             runtime.retagAcceptedLunge(player, insideWarzone);
         });
     }
