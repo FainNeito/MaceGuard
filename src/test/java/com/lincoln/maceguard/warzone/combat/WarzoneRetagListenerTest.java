@@ -70,6 +70,7 @@ class WarzoneRetagListenerTest {
 
     @Test void onlyGlidingCombatPlayersRefreshAndCloseStopsRefresh() {
         when(scopes.combatBound(attacker)).thenReturn(true);
+        when(scopes.warzoneTagged(attacker)).thenReturn(false);
         when(attacker.isGliding()).thenReturn(true);
         listener.refreshGlidingPlayers(List.of(attacker, victim));
         verify(combat).retag(attacker, null, false);
@@ -81,6 +82,7 @@ class WarzoneRetagListenerTest {
 
     @Test void successfulRiptideRefreshesExistingCombatButCancellationDoesNot() {
         when(scopes.combatBound(attacker)).thenReturn(true);
+        when(scopes.warzoneTagged(attacker)).thenReturn(false);
         PlayerRiptideEvent event = mock(PlayerRiptideEvent.class);
         when(event.getPlayer()).thenReturn(attacker);
         when(event.isCancelled()).thenReturn(true);
@@ -121,6 +123,7 @@ class WarzoneRetagListenerTest {
 
     @Test void modernConsumableTeleportRequiresAcceptedChorusConsumption() {
         when(scopes.combatBound(attacker)).thenReturn(true);
+        when(scopes.warzoneTagged(attacker)).thenReturn(false);
         PlayerTeleportEvent teleport = mock(PlayerTeleportEvent.class);
         when(teleport.getPlayer()).thenReturn(attacker);
         when(teleport.getCause()).thenReturn(PlayerTeleportEvent.TeleportCause.CONSUMABLE_EFFECT);
