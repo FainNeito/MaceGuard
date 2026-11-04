@@ -8,6 +8,8 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockFromToEvent;
+import org.bukkit.Material;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -148,6 +150,24 @@ public final class TemporaryBlockService implements Listener {
     }
 
     public int count() { return tracked.size(); }
+
+    /** Forget a tracked Warzone web only after water actually replaced it. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onWaterFlow(BlockFromToEvent event) {
+        if (event.isCancelled() || event.getBlock().getType() != Material.WATER) return;
+        Block target = event.getToBlock();
+        if (target.getType() != Material.COBWEB) return;
+        String worldId = target.getWorld().getUID().toString();
+        TemporaryBlock previous = tracked.values().stream().filter(entry -> entry.warzoneOwned()
+                && entry.isKind(TemporaryBlock.Kind.COBWEB) && entry.worldUuid().equals(worldId)
+                && entry.x() == target.getX() && entry.y() == target.getY()
+                && entry.z() == target.getZ()).findFirst().orElse(null);
+        if (previous == null) return;
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (!shuttingDown && target.getType() != Material.COBWEB)
+                clearMatching(previous::equals);
+        });
+    }
 
     public int emergencyRecoveryCount() { return emergencyRecovery.size(); }
 
