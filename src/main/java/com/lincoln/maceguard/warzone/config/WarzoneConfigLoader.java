@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static com.lincoln.maceguard.warzone.config.StrictConfigValues.*;
+
 public final class WarzoneConfigLoader {
     public static final int VERSION = 5;
     private static final int PERCENT_MAX = 100;
@@ -79,14 +81,48 @@ public final class WarzoneConfigLoader {
 
 
         Map<String, Object> combatRaw = map(root.getOrDefault("combat", Map.of()), "combat", errors);
-        keys(combatRaw, "combat", Set.of("stasis"), errors);
+        keys(combatRaw, "combat", Set.of("stasis", "warzone-tag"), errors);
         Map<String, Object> stasisRaw = map(combatRaw.getOrDefault("stasis", Map.of()), "combat.stasis", errors);
         keys(stasisRaw, "combat.stasis", Set.of("minimum-age"), errors);
         Duration stasisMinimumAge = duration(stasisRaw.getOrDefault("minimum-age", "60s"),
                 "combat.stasis.minimum-age", errors);
         if (stasisMinimumAge.isNegative() || stasisMinimumAge.isZero())
             errors.add("combat.stasis.minimum-age must be positive.");
-        WarzoneConfig.Combat combat = new WarzoneConfig.Combat(new WarzoneConfig.Stasis(stasisMinimumAge));
+        Map<String, Object> tagRaw = map(combatRaw.getOrDefault("warzone-tag", Map.of()),
+                "combat.warzone-tag", errors);
+        keys(tagRaw, "combat.warzone-tag", Set.of("enabled", "carry-restrictions-outside",
+                "prevent-riptide", "prevent-teleportation", "blocked-region-ids", "boss-bar"), errors);
+        Map<String, Object> barRaw = map(tagRaw.getOrDefault("boss-bar", Map.of()),
+                "combat.warzone-tag.boss-bar", errors);
+        keys(barRaw, "combat.warzone-tag.boss-bar", Set.of("enabled", "title",
+                "text-color", "fill-color"), errors);
+        String barTitle = nonBlank(barRaw.getOrDefault("title", "Warzone Combat"),
+                "combat.warzone-tag.boss-bar.title", errors);
+        String textColor = nonBlank(barRaw.getOrDefault("text-color", "#EE4B00"),
+                "combat.warzone-tag.boss-bar.text-color", errors);
+        if (!textColor.matches("#[0-9a-fA-F]{6}"))
+            errors.add("combat.warzone-tag.boss-bar.text-color must be a six-digit hex color.");
+        String fillColor = nonBlank(barRaw.getOrDefault("fill-color", "RED"),
+                "combat.warzone-tag.boss-bar.fill-color", errors).toUpperCase(Locale.ROOT);
+        if (!Set.of("PINK", "BLUE", "RED", "GREEN", "YELLOW", "PURPLE", "WHITE")
+                .contains(fillColor))
+            errors.add("combat.warzone-tag.boss-bar.fill-color must be a vanilla boss-bar color.");
+        WarzoneConfig.WarzoneTag tag = new WarzoneConfig.WarzoneTag(
+                bool(tagRaw.getOrDefault("enabled", Boolean.TRUE),
+                        "combat.warzone-tag.enabled", errors, true),
+                bool(tagRaw.getOrDefault("carry-restrictions-outside", Boolean.TRUE),
+                        "combat.warzone-tag.carry-restrictions-outside", errors, true),
+                bool(barRaw.getOrDefault("enabled", Boolean.TRUE),
+                        "combat.warzone-tag.boss-bar.enabled", errors, true),
+                barTitle, textColor, fillColor,
+                bool(tagRaw.getOrDefault("prevent-riptide", Boolean.TRUE),
+                        "combat.warzone-tag.prevent-riptide", errors, true),
+                bool(tagRaw.getOrDefault("prevent-teleportation", Boolean.TRUE),
+                        "combat.warzone-tag.prevent-teleportation", errors, true),
+                idList(tagRaw.getOrDefault("blocked-region-ids", List.of("spawn", "market")),
+                        "combat.warzone-tag.blocked-region-ids", errors));
+        WarzoneConfig.Combat combat = new WarzoneConfig.Combat(
+                new WarzoneConfig.Stasis(stasisMinimumAge), tag);
 
         Map<String, Object> cobwebRaw = map(root.getOrDefault("cobwebs", Map.of()), "cobwebs", errors);
         keys(cobwebRaw, "cobwebs", Set.of("clear-after", "clear-on-meta-change", "clear-on-disable"), errors);
@@ -478,54 +514,4 @@ public final class WarzoneConfigLoader {
         return text;
     }
 
-    private Map<String, Object> map(Object value, String path, List<String> errors) {
-        if (value instanceof Map<?, ?> raw) {
-            Map<String, Object> result = new LinkedHashMap<>();
-            for (Map.Entry<?, ?> entry : raw.entrySet()) {
-                if (!(entry.getKey() instanceof String key)) {
-                    errors.add(path + " contains a non-string key.");
-                    continue;
-                }
-                result.put(key, entry.getValue());
-            }
-            return result;
-        }
-        errors.add(path + " must be a mapping.");
-        return Map.of();
-    }
-
-    private void keys(Map<String, Object> values, String path, Set<String> allowed, List<String> errors) {
-        values.keySet().stream().filter(key -> !allowed.contains(key))
-                .forEach(key -> errors.add((path.equals("<root>") ? "" : path + ".") + key + " is not supported."));
-    }
-
-    private String nonBlank(Object value, String path, List<String> errors) {
-        if (!(value instanceof String text) || text.isBlank()) {
-            errors.add(path + " must be a non-blank string.");
-            return "";
-        }
-        return text;
-    }
-
-    private String optionalString(Object value, String path, List<String> errors) {
-        if (value == null) return null;
-        if (!(value instanceof String text)) {
-            errors.add(path + " must be a string.");
-            return null;
-        }
-        return text;
-    }
-
-    private boolean bool(Object value, String path, List<String> errors, boolean fallback) {
-        if (value instanceof Boolean result) return result;
-        errors.add(path + " must be true or false.");
-        return fallback;
-    }
-
-    private int integer(Object value, String path, List<String> errors, int fallback) {
-        if (value instanceof Number number && number.doubleValue() == Math.rint(number.doubleValue()))
-            return number.intValue();
-        errors.add(path + " must be an integer.");
-        return fallback;
-    }
 }
