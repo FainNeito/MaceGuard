@@ -127,7 +127,7 @@ jobs:
           retention-days: 14
 
   publish-latest:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.repository == 'wsg138/MaceGuard'
     needs: build
     runs-on: ubuntu-latest
     permissions:

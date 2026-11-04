@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   cleanup:
+    if: github.repository == 'wsg138/MaceGuard'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
