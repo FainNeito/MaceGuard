@@ -183,6 +183,7 @@ public final class WarzoneRuntime {
     }
 
     private void tickRuntime() {
+        combatRetagListener.refreshGlidingPlayers(plugin.getServer().getOnlinePlayers());
         rotations.tick();
         cooldowns.discardExpired();
         messages.cleanup();

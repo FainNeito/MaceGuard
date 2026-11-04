@@ -8,6 +8,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.player.PlayerRiptideEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.Material;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
@@ -61,6 +66,78 @@ class WarzoneRetagListenerTest {
         when(event.getDamager()).thenReturn(attacker);
         when(event.getFinalDamage()).thenReturn(2D);
         return event;
+    }
+
+    @Test void onlyGlidingCombatPlayersRefreshAndCloseStopsRefresh() {
+        when(scopes.combatBound(attacker)).thenReturn(true);
+        when(scopes.warzoneTagged(attacker)).thenReturn(false);
+        when(attacker.isGliding()).thenReturn(true);
+        listener.refreshGlidingPlayers(List.of(attacker, victim));
+        verify(combat).retag(attacker, null, false);
+        verify(combat, never()).retag(eq(victim), any(), anyBoolean());
+        listener.close();
+        listener.refreshGlidingPlayers(List.of(attacker));
+        verify(combat, times(1)).retag(attacker, null, false);
+    }
+
+    @Test void successfulRiptideRefreshesExistingCombatButCancellationDoesNot() {
+        when(scopes.combatBound(attacker)).thenReturn(true);
+        when(scopes.warzoneTagged(attacker)).thenReturn(false);
+        PlayerRiptideEvent event = mock(PlayerRiptideEvent.class);
+        when(event.getPlayer()).thenReturn(attacker);
+        when(event.isCancelled()).thenReturn(true);
+        listener.onRiptide(event);
+        assertTrue(pending.isEmpty());
+        when(event.isCancelled()).thenReturn(false);
+        listener.onRiptide(event);
+        pending.forEach(Runnable::run);
+        verify(combat).retag(attacker, null, false);
+    }
+
+    @Test void chorusRefreshesOnlyUncancelledExistingCombatAndRechecksExpiry() {
+        when(scopes.combatBound(attacker)).thenReturn(true);
+        PlayerTeleportEvent event = mock(PlayerTeleportEvent.class);
+        when(event.getPlayer()).thenReturn(attacker);
+        when(event.getCause()).thenReturn(PlayerTeleportEvent.TeleportCause.CONSUMABLE_EFFECT);
+        when(event.isCancelled()).thenReturn(true);
+        listener.onChorusTeleport(event);
+        assertTrue(pending.isEmpty());
+        when(event.isCancelled()).thenReturn(false);
+        PlayerItemConsumeEvent consume = mock(PlayerItemConsumeEvent.class);
+        ItemStack item = mock(ItemStack.class);
+        when(consume.getPlayer()).thenReturn(attacker);
+        when(consume.getItem()).thenReturn(item);
+        when(item.getType()).thenReturn(Material.CHORUS_FRUIT);
+        listener.onConsume(consume);
+        listener.onChorusTeleport(event);
+        when(scopes.combatBound(attacker)).thenReturn(false);
+        pending.forEach(Runnable::run);
+        verify(combat, never()).retag(any(), any(), anyBoolean());
+        pending.clear();
+        when(scopes.combatBound(attacker)).thenReturn(true);
+        listener.onConsume(consume);
+        listener.onChorusTeleport(event);
+        pending.forEach(Runnable::run);
+        verify(combat).retag(attacker, null, false);
+    }
+
+    @Test void modernConsumableTeleportRequiresAcceptedChorusConsumption() {
+        when(scopes.combatBound(attacker)).thenReturn(true);
+        when(scopes.warzoneTagged(attacker)).thenReturn(false);
+        PlayerTeleportEvent teleport = mock(PlayerTeleportEvent.class);
+        when(teleport.getPlayer()).thenReturn(attacker);
+        when(teleport.getCause()).thenReturn(PlayerTeleportEvent.TeleportCause.CONSUMABLE_EFFECT);
+        listener.onChorusTeleport(teleport);
+        assertTrue(pending.isEmpty());
+        PlayerItemConsumeEvent consume = mock(PlayerItemConsumeEvent.class);
+        ItemStack item = mock(ItemStack.class);
+        when(consume.getPlayer()).thenReturn(attacker);
+        when(consume.getItem()).thenReturn(item);
+        when(item.getType()).thenReturn(Material.CHORUS_FRUIT);
+        listener.onConsume(consume);
+        listener.onChorusTeleport(teleport);
+        pending.forEach(Runnable::run);
+        verify(combat).retag(attacker, null, false);
     }
 
     @Test void acceptedLungeInsideRefreshesOnlyWarzoneCombat() {

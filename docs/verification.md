@@ -110,3 +110,9 @@ Source branch: `codex/warzone-combat-batch-modifiers`, based on `9ea6ad5` (local
 - While Warzone combat-tagged, try walking and pearling into Spawn and Market from outside each region, including after leaving the Warzone. Confirm entry is denied, movement within and out of either region is allowed, the block ends on untag, and ordinary CombatLogX combat and `warzonerotator.bypass` remain unaffected. Repeat after reload and confirm `/warzone validate` reports a missing configured region ID.
 - In the modifier GUI, select and deselect several items across pages, preview additions/removals, cancel without changing the live set, then apply once with each supported duration. Exercise conflicts, disabled modifiers, permission changes, count limits, kit detachment, and clear-all.
 - Compare Java and Bedrock clients on the target Paper/Leaf build. A local test JAR remains a staging artifact until these checks pass.
+
+## Mobility retag verification 2026-11-04
+
+- On fork main 9a64c66, Elytra retag has no listener; the user reports that it does not retag on TEST. New scope refreshes an existing CombatLogX tag once per runtime tick while gliding, and on accepted Riptide and chorus teleports, preserving bypass, expiry, and existing restrictions.
+- Paper 1.21.11 aliases the old CHORUS_FRUIT teleport cause to CONSUMABLE_EFFECT. The implementation correlates the modern cause with accepted chorus consumption during the same tick; other consumables do not trigger it. Actual Paper event ordering and client behavior require live verification.
+- Java 21 clean verify passed 673 tests, zero failures and zero skipped. No project-local EARS/state helper was found; requirements and tasks record the SPEAR checkpoint. These tests are not live acceptance and do not prove the reported server is running this artifact.
