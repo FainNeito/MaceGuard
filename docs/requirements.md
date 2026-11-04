@@ -33,3 +33,5 @@ Vanilla clients accept only preset boss-bar fill colors; `#EE4B00` is the title 
 
 - **MG-WZ-15:** When the Warzone cobweb modifier and effective region flag permit placement, a cobweb may replace water inside the effective Warzone; its original water block data must remain tracked for restoration. Explicit named block policies, denied item use, other regions, and disabled modifiers remain authoritative.
 - **MG-WZ-16:** Denying a restricted held item must not itself cancel an otherwise independently permitted block interaction; other plugins and WorldGuard retain their own decisions.
+
+- **MG-WZ-17:** WHEN an uncancelled water flow actually replaces a tracked Warzone cobweb, THE SYSTEM SHALL retire that exact stale tracking record without restoring over the changed block, allowing a later placement at that coordinate. Cancelled flows, webs still present, non-Warzone records, replacement records, and recovery failures shall remain protected.

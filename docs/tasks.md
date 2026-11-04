@@ -49,3 +49,5 @@ Local EARS/state helpers are absent. Requirements and these task/evidence record
 - [ ] MG-WZ-14: Verify Elytra glide, Riptide and chorus retags against ordinary and Warzone combat, including cancelled actions, expiry, bypass, shutdown and supported client/runtime behavior. User reported Elytra retag failure on TEST; no fresh live reproduction is claimed.
 
 - [ ] MG-WZ-15/16: Verify water-to-cobweb placement and restoration and the separation of held-item denial from block use on real TEST. Investigate empty-handed lectern/stall flags independently; do not infer that held-item behavior explains all reports.
+
+- [ ] MG-WZ-17: Verify on TEST whether a water-removed tracked web accounts for the reported source-block denial. Reproduce on a fresh water source as a separate case; preserve journal durability, unchanged blocks and other owners.

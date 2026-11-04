@@ -7,6 +7,7 @@ import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
@@ -338,6 +339,66 @@ class TemporaryBlockServiceTest {
         assertEquals(Material.AIR, block.material);
         assertEquals(AIR_DATA, block.data);
         assertEquals(0, service.count());
+    }
+
+    @Test
+    void waterRemovedWebReleasesItsCoordinateWithoutRestoringTheOriginalBlock() {
+        WorldHarness world = world();
+        TemporaryBlockService service = service("water-removed.json", Runnable::run, 10);
+        BlockHarness target = world.block(14, 64, 14, Material.COBWEB, COBWEB_DATA);
+        assertTrue(service.track(target.block, AIR_DATA, 60_000L, true));
+        Block water = mock(Block.class);
+        when(water.getType()).thenReturn(Material.WATER);
+        BlockFromToEvent event = mock(BlockFromToEvent.class);
+        when(event.getBlock()).thenReturn(water);
+        when(event.getToBlock()).thenReturn(target.block);
+        Deque<Runnable> deferred = new ArrayDeque<>();
+        when(plugin.getServer().getScheduler().runTask(eq(plugin), any(Runnable.class)))
+                .thenAnswer(call -> { deferred.add(call.getArgument(1)); return task; });
+        service.onWaterFlow(event);
+        assertEquals(1, service.count());
+        target.set(Material.WATER, SOURCE_WATER_DATA);
+        deferred.removeFirst().run();
+        assertEquals(Material.WATER, target.material);
+        assertEquals(0, service.count());
+        target.set(Material.COBWEB, COBWEB_DATA);
+        assertTrue(service.track(target.block, SOURCE_WATER_DATA, 70_000L, true));
+    }
+
+    @Test
+    void waterFlowThatDoesNotRemoveTheWebKeepsItsOriginalRecord() {
+        WorldHarness world = world();
+        TemporaryBlockService service = service("water-kept.json", Runnable::run, 10);
+        BlockHarness target = world.block(15, 64, 15, Material.COBWEB, COBWEB_DATA);
+        assertTrue(service.track(target.block, AIR_DATA, 60_000L, true));
+        Block water = mock(Block.class);
+        when(water.getType()).thenReturn(Material.WATER);
+        BlockFromToEvent event = mock(BlockFromToEvent.class);
+        when(event.getBlock()).thenReturn(water);
+        when(event.getToBlock()).thenReturn(target.block);
+        service.onWaterFlow(event);
+        assertEquals(1, service.count());
+        assertFalse(service.track(target.block, SOURCE_WATER_DATA, 70_000L, true));
+    }
+
+    @Test
+    void cancelledWaterAndNonWarzoneWebsDoNotScheduleCleanup() {
+        WorldHarness world = world();
+        TemporaryBlockService service = service("water-scope.json", Runnable::run, 10);
+        BlockHarness target = world.block(16, 64, 16, Material.COBWEB, COBWEB_DATA);
+        assertTrue(service.track(target.block, AIR_DATA, 60_000L, false));
+        Block water = mock(Block.class);
+        when(water.getType()).thenReturn(Material.WATER);
+        BlockFromToEvent event = mock(BlockFromToEvent.class);
+        when(event.getBlock()).thenReturn(water);
+        when(event.getToBlock()).thenReturn(target.block);
+        when(event.isCancelled()).thenReturn(true);
+        service.onWaterFlow(event);
+        when(event.isCancelled()).thenReturn(false);
+        service.onWaterFlow(event);
+        org.mockito.Mockito.verify(plugin.getServer().getScheduler(), org.mockito.Mockito.never())
+                .runTask(eq(plugin), any(Runnable.class));
+        assertEquals(1, service.count());
     }
 
     private void assertRestores(String file, String originalData, Material material) {
