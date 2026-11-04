@@ -1,6 +1,7 @@
 package com.lincoln.maceguard.warzone.combat;
 
 import com.lincoln.maceguard.worldguard.WorldGuardQueryService;
+import com.lincoln.maceguard.warzone.config.WarzoneConfig;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,24 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class CombatScopeServiceTest {
+    private static final String SPAWN_REGION = "spawn";
+    @Test void blockedRegionEntryAppliesOnlyToLatchedPlayersAndHonorsBypass() {
+        when(worldGuard.enteringRegion(outside, inside, List.of(SPAWN_REGION, "market")))
+                .thenReturn(SPAWN_REGION);
+        assertNull(scopes.blockedRegionOnEntry(player, outside, inside));
+        assertTrue(scopes.acquireIfEligible(player, inside));
+        assertEquals(SPAWN_REGION, scopes.blockedRegionOnEntry(player, outside, inside));
+        when(player.hasPermission("warzonerotator.bypass")).thenReturn(true);
+        assertNull(scopes.blockedRegionOnEntry(player, outside, inside));
+    }
+
+    @Test void movementWithinRegionAndExpiredTagDoNotBlockEntry() {
+        assertTrue(scopes.acquireIfEligible(player, inside));
+        assertNull(scopes.blockedRegionOnEntry(player, inside, inside));
+        when(combat.inCombat(player)).thenReturn(false);
+        assertNull(scopes.blockedRegionOnEntry(player, outside, inside));
+        verify(worldGuard, never()).enteringRegion(outside, inside, List.of(SPAWN_REGION, "market"));
+    }
     private CombatLogXGateway combat;
     private WorldGuardQueryService worldGuard;
     private CombatScopeService scopes;
@@ -75,6 +94,27 @@ class CombatScopeServiceTest {
         when(combat.inCombat(player)).thenReturn(false);
         assertFalse(scopes.combatBound(player));
         assertTrue(scopes.latch(playerId).isEmpty());
+    }
+
+    @Test void disabledCarryoverKeepsTagButStopsOutsideRestrictions() {
+        WarzoneConfig.WarzoneTag tag = new WarzoneConfig.WarzoneTag(true, false,
+                true, "Warzone Combat", "#EE4B00", "RED", true, true);
+        scopes = new CombatScopeService(combat, worldGuard, tag);
+        assertTrue(scopes.acquireIfEligible(player, inside));
+        assertTrue(scopes.warzoneTagged(player));
+        assertTrue(scopes.restrictionsApply(player, true));
+        assertFalse(scopes.restrictionsApply(player, false));
+        assertFalse(scopes.carryoverEligible(player));
+        assertFalse(scopes.riptideBlocked(player, false));
+        assertFalse(scopes.teleportBlocked(player, false));
+    }
+
+    @Test void ordinaryCombatOutsideWarzoneNeverAcquiresRestrictions() {
+        assertFalse(scopes.acquireIfEligible(player, outside));
+        assertFalse(scopes.warzoneTagged(player));
+        assertFalse(scopes.restrictionsApply(player, false));
+        assertFalse(scopes.riptideBlocked(player, false));
+        assertFalse(scopes.teleportBlocked(player, false));
     }
 
     @Test void laterAllowedRegionCannotEraseCapturedStasisDeny() {

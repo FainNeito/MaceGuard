@@ -1,6 +1,9 @@
 package com.lincoln.maceguard.warzone.combat;
 
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Entity;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
@@ -13,21 +16,35 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /** Runtime-validated adapter for CombatLogX's optional public API. */
 final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
+    private static final String BOSS_BAR_KEY = "bossbar";
+    private static final String BOSS_BAR_SIMPLE_NAME = "BossBarUpdater";
+    private static final String EXPANSION_ENABLED = "ENABLED";
     private static final String TAG_EVENT = "com.github.sirblobman.combatlogx.api.event.PlayerTagEvent";
     private static final String RETAG_EVENT = "com.github.sirblobman.combatlogx.api.event.PlayerReTagEvent";
     private static final String UNTAG_EVENT = "com.github.sirblobman.combatlogx.api.event.PlayerUntagEvent";
+    private static final String BOSS_BAR_UPDATER = "combatlogx.expansion.boss.bar.BossBarUpdater";
 
     private final JavaPlugin owner;
+    private Optional<Plugin> combatLogX;
+    private final Map<UUID, BossBarPreference> suppressedBossBars = new ConcurrentHashMap<>();
+    private boolean bossBarWarningReported;
     private final Method isInCombatMethod;
     private final Method canBypassMethod;
     private final Method maximumSecondsMethod;
     private final Method tagInformationMethod;
     private final Method millisLeftMethod;
+    private final Method retagMethod;
+    private final Object playerTagType;
+    private final Object attackerReason;
+    private final Object attackedReason;
+    private final Object unknownReason;
     private final Class<? extends Event> tagEventClass;
     private final Class<? extends Event> reTagEventClass;
     private final Class<? extends Event> untagEventClass;
@@ -38,28 +55,28 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
     private Optional<Lifecycle> lifecycle = Optional.empty();
     private boolean registered;
 
-    private DirectCombatLogXGateway(JavaPlugin owner, Object combatManager,
-                                    Method isInCombatMethod, Method canBypassMethod,
-                                    Method maximumSecondsMethod, Method tagInformationMethod,
-                                    Method millisLeftMethod,
-                                    Class<? extends Event> tagEventClass,
-                                    Class<? extends Event> reTagEventClass,
-                                    Class<? extends Event> untagEventClass,
-                                    Method tagPlayerMethod, Method reTagPlayerMethod,
-                                    Method untagPlayerMethod) {
+    private DirectCombatLogXGateway(JavaPlugin owner, Plugin combatLogX, Object combatManager,
+                                    ManagerApi managerApi, TagArguments arguments,
+                                    EventApi tag, EventApi reTag, EventApi untag) {
         this.owner = owner;
+        this.combatLogX = Optional.of(combatLogX);
         this.combatManager = Optional.of(combatManager);
-        this.isInCombatMethod = isInCombatMethod;
-        this.canBypassMethod = canBypassMethod;
-        this.maximumSecondsMethod = maximumSecondsMethod;
-        this.tagInformationMethod = tagInformationMethod;
-        this.millisLeftMethod = millisLeftMethod;
-        this.tagEventClass = tagEventClass;
-        this.reTagEventClass = reTagEventClass;
-        this.untagEventClass = untagEventClass;
-        this.tagPlayerMethod = tagPlayerMethod;
-        this.reTagPlayerMethod = reTagPlayerMethod;
-        this.untagPlayerMethod = untagPlayerMethod;
+        this.isInCombatMethod = managerApi.inCombat();
+        this.canBypassMethod = managerApi.bypass();
+        this.maximumSecondsMethod = managerApi.maximumSeconds();
+        this.tagInformationMethod = managerApi.tagInformation();
+        this.millisLeftMethod = managerApi.millisLeft();
+        this.retagMethod = managerApi.retag();
+        this.playerTagType = arguments.playerType();
+        this.attackerReason = arguments.attacker();
+        this.attackedReason = arguments.attacked();
+        this.unknownReason = arguments.unknown();
+        this.tagEventClass = tag.eventClass();
+        this.reTagEventClass = reTag.eventClass();
+        this.untagEventClass = untag.eventClass();
+        this.tagPlayerMethod = tag.player();
+        this.reTagPlayerMethod = reTag.player();
+        this.untagPlayerMethod = untag.player();
     }
 
     static DirectCombatLogXGateway connect(JavaPlugin owner, Plugin candidate) {
@@ -82,6 +99,13 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
             Method millisLeft = tagInformation.getReturnType().getMethod("getMillisLeftCombined");
 
             ClassLoader loader = candidate.getClass().getClassLoader();
+            Class<?> tagType = Class.forName("com.github.sirblobman.combatlogx.api.object.TagType", false, loader);
+            Class<?> tagReason = Class.forName("com.github.sirblobman.combatlogx.api.object.TagReason", false, loader);
+            Method retag = managerType.getMethod("tag", Player.class, Entity.class, tagType, tagReason);
+            Object playerType = enumConstant(tagType, "PLAYER");
+            Object attacker = enumConstant(tagReason, "ATTACKER");
+            Object attacked = enumConstant(tagReason, "ATTACKED");
+            Object unknown = enumConstant(tagReason, "UNKNOWN");
             Class<? extends Event> tagClass = eventClass(loader, tagEventName);
             Class<? extends Event> reTagClass = eventClass(loader, reTagEventName);
             Class<? extends Event> untagClass = eventClass(loader, untagEventName);
@@ -89,9 +113,11 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
             Method reTagPlayer = playerMethod(reTagClass);
             Method untagPlayer = playerMethod(untagClass);
 
-            return new DirectCombatLogXGateway(owner, manager, isInCombat, canBypass,
-                    maximumSeconds, tagInformation, millisLeft, tagClass, reTagClass,
-                    untagClass, tagPlayer, reTagPlayer, untagPlayer);
+            return new DirectCombatLogXGateway(owner, candidate, manager,
+                    new ManagerApi(isInCombat, canBypass, maximumSeconds, tagInformation, millisLeft, retag),
+                    new TagArguments(playerType, attacker, attacked, unknown),
+                    new EventApi(tagClass, tagPlayer), new EventApi(reTagClass, reTagPlayer),
+                    new EventApi(untagClass, untagPlayer));
         } catch (ReflectiveOperationException incompatible) {
             throw new IllegalStateException("CombatLogX public API is incompatible: "
                     + incompatible.getClass().getSimpleName() + ": " + incompatible.getMessage(), incompatible);
@@ -101,6 +127,10 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
     private static Class<? extends Event> eventClass(ClassLoader loader, String name)
             throws ClassNotFoundException {
         return Class.forName(name, false, loader).asSubclass(Event.class);
+    }
+
+    private static Object enumConstant(Class<?> type, String name) throws ReflectiveOperationException {
+        return type.getField(name).get(null);
     }
 
     private static Method playerMethod(Class<? extends Event> eventClass) throws NoSuchMethodException {
@@ -124,6 +154,13 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
         return ((Number) invoke(maximumSecondsMethod, requireCombatManager(), player)).intValue();
     }
 
+    @Override public boolean retag(Player player, Player enemy, boolean attacker) {
+        if (!inCombat(player) || bypass(player)) return false;
+        return (boolean) invoke(retagMethod, requireCombatManager(), player, enemy,
+                playerTagType, enemy == null ? unknownReason
+                        : attacker ? attackerReason : attackedReason);
+    }
+
     @Override
     public Duration remaining(Player player) {
         Object information = invoke(tagInformationMethod, requireCombatManager(), player);
@@ -131,6 +168,108 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
         long millis = ((Number) invoke(millisLeftMethod, information)).longValue();
         return Duration.ofMillis(Math.max(0L, millis));
     }
+
+    @Override
+    public boolean suppressBossBar(Player player) {
+        try {
+            Plugin plugin = combatLogX.orElseThrow();
+            Object updater = bossBarUpdater(plugin);
+            if (updater == null) {
+                if (bossBarExpansionEnabled(plugin))
+                    throw new IllegalStateException("CombatLogX Boss Bar expansion has no compatible updater");
+                return true;
+            }
+            YamlConfiguration data = playerData(plugin, player);
+            return suppressUpdater(player, updater, data);
+        } catch (RuntimeException | ReflectiveOperationException | LinkageError failure) {
+            warnBossBarFailure(failure);
+            return false;
+        }
+    }
+
+    private boolean suppressUpdater(Player player, Object updater, YamlConfiguration data)
+            throws ReflectiveOperationException {
+            UUID id = player.getUniqueId();
+            BossBarPreference previous = suppressedBossBars.get(id);
+            if (previous != null && Boolean.FALSE.equals(data.get(BOSS_BAR_KEY))) return true;
+            Object original = previous == null ? data.get(BOSS_BAR_KEY) : previous.originalValue();
+            if (!Boolean.FALSE.equals(data.get(BOSS_BAR_KEY))) data.set(BOSS_BAR_KEY, false);
+            try {
+                invoke(updater.getClass().getMethod("remove", Player.class), updater, player);
+            } catch (RuntimeException | ReflectiveOperationException failure) {
+                data.set(BOSS_BAR_KEY, original);
+                throw failure;
+            }
+            suppressedBossBars.putIfAbsent(id, new BossBarPreference(player, original));
+            return true;
+    }
+
+    @Override
+    public void restoreBossBar(Player player) {
+        BossBarPreference previous = suppressedBossBars.get(player.getUniqueId());
+        if (previous == null) return;
+        try {
+            Plugin plugin = combatLogX.orElseThrow();
+            Object manager = invoke(plugin.getClass().getMethod("getPlayerDataManager"), plugin);
+            YamlConfiguration data = (YamlConfiguration) invoke(
+                    manager.getClass().getMethod("get", OfflinePlayer.class), manager, player);
+            data.set(BOSS_BAR_KEY, previous.originalValue());
+            invoke(manager.getClass().getMethod("save", OfflinePlayer.class), manager, player);
+            suppressedBossBars.remove(player.getUniqueId());
+        } catch (RuntimeException | ReflectiveOperationException | LinkageError failure) {
+            warnBossBarFailure(failure);
+        }
+    }
+
+    private YamlConfiguration playerData(Plugin plugin, Player player)
+            throws ReflectiveOperationException {
+        Object manager = invoke(plugin.getClass().getMethod("getPlayerDataManager"), plugin);
+        return (YamlConfiguration) invoke(
+                manager.getClass().getMethod("get", OfflinePlayer.class), manager, player);
+    }
+
+    private Object bossBarUpdater(Plugin plugin) throws ReflectiveOperationException {
+        Object manager = invoke(plugin.getClass().getMethod("getTimerManager"), plugin);
+        Object updaters = invoke(manager.getClass().getMethod("getTimerUpdaters"), manager);
+        if (!(updaters instanceof Iterable<?> iterable))
+            throw new IllegalStateException("CombatLogX timer updaters are not iterable");
+        for (Object updater : iterable)
+            if (BOSS_BAR_UPDATER.equals(updater.getClass().getName())
+                    || BOSS_BAR_SIMPLE_NAME.equals(updater.getClass().getSimpleName())) return updater;
+        return null;
+    }
+
+    private boolean bossBarExpansionEnabled(Plugin plugin) throws ReflectiveOperationException {
+        Object manager = invoke(plugin.getClass().getMethod("getExpansionManager"), plugin);
+        Object expansions = invoke(manager.getClass().getMethod("getAllExpansions"), manager);
+        if (!(expansions instanceof Iterable<?> iterable))
+            throw new IllegalStateException("CombatLogX expansions are not iterable");
+        for (Object expansion : iterable) {
+            Object name = invoke(expansion.getClass().getMethod("getName"), expansion);
+            if (BOSS_BAR_KEY.equals(String.valueOf(name).replace(" ", "")
+                    .toLowerCase(java.util.Locale.ROOT))) return expansionEnabled(expansion);
+        }
+        return false;
+    }
+
+    private boolean expansionEnabled(Object expansion) throws ReflectiveOperationException {
+        Object state = invoke(expansion.getClass().getMethod("getState"), expansion);
+        return EXPANSION_ENABLED.equals(String.valueOf(state));
+    }
+
+    private record ManagerApi(Method inCombat, Method bypass, Method maximumSeconds,
+                              Method tagInformation, Method millisLeft, Method retag) { }
+    private record TagArguments(Object playerType, Object attacker, Object attacked, Object unknown) { }
+    private record EventApi(Class<? extends Event> eventClass, Method player) { }
+
+    private void warnBossBarFailure(Throwable failure) {
+        if (bossBarWarningReported) return;
+        bossBarWarningReported = true;
+        owner.getLogger().warning("CombatLogX Boss Bar handoff failed; Warzone boss bar will remain hidden: "
+                + failure.getClass().getSimpleName() + ": " + failure.getMessage());
+    }
+
+    private record BossBarPreference(Player player, Object originalValue) { }
 
     @Override
     public void register(Lifecycle lifecycle) {
@@ -210,9 +349,12 @@ final class DirectCombatLogXGateway implements CombatLogXGateway, Listener {
 
     @Override
     public void close() {
+        for (BossBarPreference preference : java.util.List.copyOf(suppressedBossBars.values()))
+            restoreBossBar(preference.player());
         if (registered) HandlerList.unregisterAll(this);
         registered = false;
         lifecycle = Optional.empty();
         combatManager = Optional.empty();
+        combatLogX = Optional.empty();
     }
 }
