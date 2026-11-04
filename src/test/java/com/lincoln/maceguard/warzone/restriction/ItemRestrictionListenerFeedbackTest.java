@@ -40,6 +40,20 @@ class ItemRestrictionListenerFeedbackTest {
     private static final String PEARL_TARGET = "ENDER_PEARL";
     private static final String MACE_TARGET = "MACE";
 
+    @Test void restrictedHeldItemDoesNotCancelUsingAnAllowedBlock() {
+        Harness harness = harness(target("SHIELD"), RestrictionMode.DISABLED);
+        PlayerInteractEvent event = mock(PlayerInteractEvent.class);
+        ItemStack item = mock(ItemStack.class);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
+        when(event.getItem()).thenReturn(item);
+        when(item.getType()).thenReturn(Material.SHIELD);
+        when(event.getPlayer()).thenReturn(harness.player);
+        harness.listener.onInteract(event);
+        verify(event).setUseItemInHand(Event.Result.DENY);
+        verify(event, never()).setCancelled(true);
+        verify(event, never()).setUseInteractedBlock(any());
+    }
+
     @Test void combatRiptideIsDeniedBeforeChargingInEitherInteraction() {
         Harness h = harness(Map.of());
         ItemRestrictionListener listener = spy(h.listener);

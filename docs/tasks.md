@@ -47,3 +47,5 @@ Local EARS/state helpers are absent. Requirements and these task/evidence record
 - [x] Verify permitted/denied Jab paths, ordinary outside combat, expired/absent tags, and runtime shutdown; submit follow-up PR #47 targeting canonical PR #46's branch. Live player acceptance remains separate.
 
 - [ ] MG-WZ-14: Verify Elytra glide, Riptide and chorus retags against ordinary and Warzone combat, including cancelled actions, expiry, bypass, shutdown and supported client/runtime behavior. User reported Elytra retag failure on TEST; no fresh live reproduction is claimed.
+
+- [ ] MG-WZ-15/16: Verify water-to-cobweb placement and restoration and the separation of held-item denial from block use on real TEST. Investigate empty-handed lectern/stall flags independently; do not infer that held-item behavior explains all reports.

@@ -30,3 +30,6 @@ This SPEAR slice covers the cumulative Warzone changes and the PR authorized on 
 Vanilla clients accept only preset boss-bar fill colors; `#EE4B00` is the title color. CombatLogX Cheat Prevention must be configured separately to stop globally blocking Elytra, Riptide, and teleports. A local build does not establish live Paper/Leaf, WorldGuard, CombatLogX, or client behavior.
 
 - **MG-WZ-14:** While a player already has an active non-bypassed CombatLogX tag, refresh that existing tag while the player is gliding, and after an uncancelled Riptide launch or chorus-fruit teleport. Denied actions shall not refresh; no action shall create combat for an untagged player. Deferred actions shall recheck combat and runtime lifetime. Existing Warzone movement restrictions remain authoritative.
+
+- **MG-WZ-15:** When the Warzone cobweb modifier and effective region flag permit placement, a cobweb may replace water inside the effective Warzone; its original water block data must remain tracked for restoration. Explicit named block policies, denied item use, other regions, and disabled modifiers remain authoritative.
+- **MG-WZ-16:** Denying a restricted held item must not itself cancel an otherwise independently permitted block interaction; other plugins and WorldGuard retain their own decisions.
