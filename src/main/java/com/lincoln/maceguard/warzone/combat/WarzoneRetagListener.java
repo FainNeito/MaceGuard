@@ -9,9 +9,16 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.player.PlayerRiptideEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.Material;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Predicate;
 
 /** Refreshes existing CombatLogX timers for accepted combat actions. */
@@ -22,6 +29,7 @@ public final class WarzoneRetagListener implements Listener {
     private final CombatScopeService scopes;
     private final Predicate<Player> insideWarzone;
     private final Predicate<Player> windChargeEnabled;
+    private final Set<UUID> pendingChorus = new HashSet<>();
     private boolean closed;
 
     public WarzoneRetagListener(JavaPlugin plugin, CombatScopeService scopes) {
@@ -48,7 +56,38 @@ public final class WarzoneRetagListener implements Listener {
                 () -> refresh(player, null, false, warzoneOnly));
     }
 
-    public void close() { closed = true; }
+    public void close() { closed = true; pendingChorus.clear(); }
+
+    /** Refresh only existing tags while the player is actually gliding. */
+    public void refreshGlidingPlayers(Iterable<? extends Player> players) {
+        if (closed) return;
+        for (Player player : players) {
+            if (player.isGliding()) refresh(player, null, false, false);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onRiptide(PlayerRiptideEvent event) {
+        if (!event.isCancelled()) scheduleRefresh(event.getPlayer(), false);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onConsume(PlayerItemConsumeEvent event) {
+        if (closed || event.isCancelled() || event.getItem().getType() != Material.CHORUS_FRUIT) return;
+        UUID id = event.getPlayer().getUniqueId();
+        pendingChorus.add(id);
+        plugin.getServer().getScheduler().runTask(plugin, () -> pendingChorus.remove(id));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onChorusTeleport(PlayerTeleportEvent event) {
+        if (event.isCancelled()) return;
+        String cause = event.getCause().name();
+        boolean chorus = cause.equals("CHORUS_FRUIT") || cause.equals("CONSUMABLE_EFFECT")
+                && pendingChorus.remove(event.getPlayer().getUniqueId());
+        if (chorus)
+            scheduleRefresh(event.getPlayer(), false);
+    }
 
     private boolean eligible(Player player, boolean warzoneOnly) {
         return player.isOnline() && !player.hasPermission("warzonerotator.bypass")
