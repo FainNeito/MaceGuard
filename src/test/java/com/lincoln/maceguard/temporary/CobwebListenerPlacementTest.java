@@ -40,6 +40,51 @@ import static org.mockito.Mockito.when;
 class CobwebListenerPlacementTest {
     private static final String POLICY_BYPASS_PERMISSION = "maceguard.block-policy.bypass";
 
+    @Test void warzoneCobwebCanReplaceAndTrackWaterWithoutExpandingNamedPolicies() {
+        Harness harness = harness(true, true);
+        BlockPlaceEvent placement = event(GameMode.SURVIVAL, 22, Material.WATER);
+        harness.listener.onRestriction(placement);
+        harness.listener.onPlace(placement);
+        verify(placement, never()).setCancelled(true);
+        verify(harness.temporary).track(any(Block.class), eq("minecraft:water"), anyLong(), eq(true));
+        assertTrue(CobwebListener.warzoneReplacementAllowed(harness.config, Material.WATER));
+        org.junit.jupiter.api.Assertions.assertFalse(CobwebListener.replacementAllowed(harness.config, Material.WATER));
+    }
+
+    @Test void worldGuardInitialCobwebWaterDelegateRequiresWarzoneAndAllowedItem() {
+        Harness harness = harness(true, true);
+        var original = mock(org.bukkit.event.player.PlayerInteractEvent.class);
+        var delegate = mock(com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent.class);
+        var item = mock(org.bukkit.inventory.ItemStack.class);
+        var target = mock(Block.class);
+        var player = mock(Player.class);
+        Location location = mock(Location.class);
+        when(original.getAction()).thenReturn(org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK);
+        when(original.getItem()).thenReturn(item);
+        when(item.getType()).thenReturn(Material.COBWEB);
+        when(original.getPlayer()).thenReturn(player);
+        when(player.getLocation()).thenReturn(location);
+        when(target.getLocation()).thenReturn(location);
+        when(target.getType()).thenReturn(Material.WATER);
+        when(delegate.getOriginalEvent()).thenReturn(original);
+        when(delegate.getEffectiveMaterial()).thenReturn(Material.COBWEB);
+        when(delegate.getBlocks()).thenReturn(java.util.List.of(target));
+        harness.listener.onWorldGuardWarzoneCobweb(delegate);
+        verify(delegate).setAllowed(true);
+        org.mockito.Mockito.clearInvocations(delegate);
+        when(original.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DENY);
+        harness.listener.onWorldGuardWarzoneCobweb(delegate);
+        verify(delegate, never()).setAllowed(true);
+        when(original.useItemInHand()).thenReturn(org.bukkit.event.Event.Result.DEFAULT);
+        when(harness.warzone.appliesAt(location)).thenReturn(false);
+        harness.listener.onWorldGuardWarzoneCobweb(delegate);
+        verify(delegate, never()).setAllowed(true);
+        when(harness.warzone.appliesAt(location)).thenReturn(true);
+        when(harness.worldGuard.warzoneCobwebsAllowed(location)).thenReturn(false);
+        harness.listener.onWorldGuardWarzoneCobweb(delegate);
+        verify(delegate, never()).setAllowed(true);
+    }
+
     @Test
     void creativeAndSurvivalPlacementsUseTheSameGuaranteedTrackingPath() {
         Harness harness = harness(true, true);

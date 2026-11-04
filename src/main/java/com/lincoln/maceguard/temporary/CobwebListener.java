@@ -61,6 +61,10 @@ public final class CobwebListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onWorldGuardWarzoneCobweb(
             com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent event) {
+        if (event.getOriginalEvent() instanceof org.bukkit.event.player.PlayerInteractEvent original) {
+            preAllowCobwebInWater(event, original);
+            return;
+        }
         if (!(event.getOriginalEvent() instanceof BlockPlaceEvent original)) return;
         if (original.getBlockPlaced().getType() != Material.COBWEB) return;
         if (!handlersEnabled(config.enabled(), config.validSchema())) return;
@@ -72,9 +76,26 @@ public final class CobwebListener implements Listener {
         var decision = warzone.cobwebDecision(original.getPlayer(), location);
         if (!temporaryBypass && !decision.allowed()) return;
         if (!worldGuard.warzoneCobwebsAllowed(location)
-                || !replacementAllowed(config, original.getBlockReplacedState().getType())) return;
+                || !warzoneReplacementAllowed(config, original.getBlockReplacedState().getType())) return;
 
         if (!worldGuard.buildAllowed(location, original.getPlayer())) event.setAllowed(true);
+    }
+
+    private void preAllowCobwebInWater(com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent event,
+                                      org.bukkit.event.player.PlayerInteractEvent original) {
+        if (!handlersEnabled(config.enabled(), config.validSchema())
+                || original.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK
+                || original.useItemInHand() == org.bukkit.event.Event.Result.DENY
+                || original.getItem() == null || original.getItem().getType() != Material.COBWEB
+                || event.getEffectiveMaterial() != Material.COBWEB || event.getBlocks().size() != 1) return;
+        Block target = event.getBlocks().getFirst();
+        var location = target.getLocation();
+        if (target.getType() != Material.WATER || policies.resolve(location).referenced()
+                || !warzone.appliesAt(original.getPlayer().getLocation()) || !warzone.appliesAt(location)
+                || !worldGuard.warzoneCobwebsAllowed(location)) return;
+        if (!original.getPlayer().hasPermission(TEMPORARY_COBWEB_BYPASS_PERMISSION)
+                && !warzone.cobwebDecision(original.getPlayer(), location).allowed()) return;
+        event.setAllowed(true);
     }
 
     /** Allows players to break only a durably tracked Warzone cobweb, including after reload. */
@@ -166,7 +187,7 @@ public final class CobwebListener implements Listener {
         boolean effectiveCobwebDenied = !temporaryBypass && !decision.allowed();
         boolean blockPlacementDenied =
                 !worldGuard.warzoneCobwebsAllowed(location)
-                || !replacementAllowed(config, event.getBlockReplacedState().getType());
+                || !warzoneReplacementAllowed(config, event.getBlockReplacedState().getType());
 
         if (!effectiveCobwebDenied && !blockPlacementDenied) return;
         event.setCancelled(true);
@@ -200,7 +221,9 @@ public final class CobwebListener implements Listener {
             if (!worldGuard.warzoneCobwebsAllowed(location)
                     || !temporaryBypass && !decision.allowed()) return;
         }
-        if (!replacementAllowed(config, event.getBlockReplacedState().getType())) {
+        if (!(warzoneApplies && !policy.referenced()
+                ? warzoneReplacementAllowed(config, event.getBlockReplacedState().getType())
+                : replacementAllowed(config, event.getBlockReplacedState().getType()))) {
             rollbackUnmanagedPlacement(event);
             warzone.sendBlockPlaceDenied(event.getPlayer(), Material.COBWEB);
             return;
@@ -297,6 +320,10 @@ public final class CobwebListener implements Listener {
 
     static boolean replacementAllowed(MaceGuardConfig config, Material original) {
         return config.temporary().replacements().contains(original.name());
+    }
+
+    static boolean warzoneReplacementAllowed(MaceGuardConfig config, Material original) {
+        return original == Material.WATER || replacementAllowed(config, original);
     }
 
     static boolean policyTemporaryAllowed(BlockPolicyResolver.Resolution policy,

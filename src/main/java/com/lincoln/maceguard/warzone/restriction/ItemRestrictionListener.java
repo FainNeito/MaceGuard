@@ -113,7 +113,7 @@ public final class ItemRestrictionListener implements Listener {
         if (supports(material, CooldownCapability.PROJECTILE)) return;
         RestrictionDecision decision = materialDecision(event.getPlayer(), material, false);
         if (!decision.denied()) return;
-        event.setCancelled(true);
+        event.setUseItemInHand(Event.Result.DENY);
         messages.denial(event.getPlayer(), decision, material);
     }
 
