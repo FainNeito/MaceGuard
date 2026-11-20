@@ -46,11 +46,18 @@ public final class WebsiteExportService implements AutoCloseable {
         if(!file.exists())plugin.saveResource("website-export.yml",false);
         var settings=new YamlConfiguration();settings.load(file);return settings;
     }
-    private int configure(YamlConfiguration settings) {
+    private int configure(YamlConfiguration settings) throws java.io.IOException {
         endpoint=WebsiteSignedExport.endpoint(settings.getString("endpoint",""));
         String variable=settings.getString("secret-environment-variable","COMMUNITY_INGEST_SECRET");
         if(!variable.matches("[A-Za-z_][A-Za-z0-9_]*"))throw new IllegalArgumentException("Invalid environment variable");
-        secret=System.getenv(variable);
+        var keyFile=plugin.getDataFolder().toPath().resolve("warzone-signing.key");
+        if (java.nio.file.Files.notExists(keyFile)) {
+            secret=System.getenv(variable);
+        } else {
+            if (!"enthusia.info".equals(endpoint.getHost()) || endpoint.getPort()!=-1)
+                throw new IllegalArgumentException("Unexpected destination for the Warzone signing key");
+            secret=java.nio.file.Files.readString(keyFile).strip();
+        }
         if(secret==null||secret.length()<32)throw new IllegalArgumentException("Missing signing secret");
         int seconds=settings.getInt("interval-seconds",300);
         if(seconds<60||seconds>3600)throw new IllegalArgumentException("Invalid export interval");
